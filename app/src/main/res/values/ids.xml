@@ -1457,4 +1457,12 @@
   <item type="id" name="btn_playback_speed_2_0" />
   <item type="id" name="btn_giftToggleSaved" />
   <item type="id" name="btn_giftConvert" />
+  <!-- TGX Mod design -->
+  <item type="id" name="btn_modDesign" />
+  <item type="id" name="btn_modAvatarShape" />
+  <item type="id" name="btn_modAvatarShapeCircle" />
+  <item type="id" name="btn_modAvatarShapeSquare" />
+  <item type="id" name="btn_modVideoSpeed" />
+  <item type="id" name="btn_modVideoMute" />
+  <item type="id" name="btn_modVideoRotate" />
 </resources>

@@ -111,6 +111,10 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
         return R.string.ThemePink;
       case ThemeId.WHITE_BLACK:
         return R.string.ThemeWhiteBlack;
+      case ThemeId.SWISS_LIGHT:
+        return R.string.ThemeSwissLight;
+      case ThemeId.SWISS_DARK:
+        return R.string.ThemeSwissDark;
     }
     throw Theme.newError(themeId, "themeId");
   }
@@ -133,6 +137,8 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
 
   public List<ThemeInfo> getBuiltinThemes () {
     int[] builtInThemeIds = BuildConfig.DEBUG ? new int[] {
+      ThemeId.SWISS_LIGHT,
+      ThemeId.SWISS_DARK,
       ThemeId.CLASSIC,
       ThemeId.BLUE,
       ThemeId.RED,
@@ -145,6 +151,8 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
       ThemeId.BLACK_WHITE,
       ThemeId.WHITE_BLACK,
     } : new int[] {
+      ThemeId.SWISS_LIGHT,
+      ThemeId.SWISS_DARK,
       ThemeId.CLASSIC,
       ThemeId.BLUE,
       ThemeId.RED,
@@ -507,6 +515,8 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
       case ThemeId.RED:
       case ThemeId.WHITE_BLACK:
       case ThemeId.CLASSIC:
+      case ThemeId.SWISS_LIGHT:
+      case ThemeId.SWISS_DARK:
         return themeId;
 
       case ThemeId.TEMPORARY:
@@ -521,7 +531,7 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
         }
       }
     }
-    return ThemeId.NIGHT_BLUE;
+    return ModDesign.defaultTheme();
   }
 
   public static int resolveCustomThemeId (int themeId) {
@@ -634,6 +644,8 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
       case ThemeId.PINK:
       case ThemeId.CYAN:
       case ThemeId.CLASSIC:
+      case ThemeId.SWISS_LIGHT:
+      case ThemeId.SWISS_DARK:
         return savedThemeId;
       default: {
         if (allowCustom) {
@@ -644,7 +656,7 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
         }
       }
     }
-    return DEFAULT_THEME;
+    return ModDesign.defaultTheme();
   }
 
   @ThemeId
@@ -655,7 +667,7 @@ public class ThemeManager implements FactorAnimator.Target, GlobalAccountListene
   @ThemeId
   public static int restoreThemeId (Settings prefs, int savedThemeId, boolean allowCustom, boolean isDark) {
     final int themeId = restoreThemeId(prefs, savedThemeId, allowCustom);
-    return themeId > ThemeId.CUSTOM && (Theme.isDarkTheme(prefs, themeId) != isDark) ? (isDark ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME) : themeId;
+    return themeId > ThemeId.CUSTOM && (Theme.isDarkTheme(prefs, themeId) != isDark) ? (isDark ? ModDesign.defaultDarkTheme() : ModDesign.defaultLightTheme()) : themeId;
   }
 
   public ThemeDelegate getTheme (@ThemeId int themeId) {

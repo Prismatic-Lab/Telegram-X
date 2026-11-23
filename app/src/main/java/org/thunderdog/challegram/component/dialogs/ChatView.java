@@ -777,6 +777,18 @@ public class ChatView extends BaseView implements TdlibSettingsManager.Preferenc
 
     DrawAlgorithms.drawIcon(c, avatarReceiver, 315f, chat.getScheduleAnimator().getFloatValue(), Theme.fillingColor(), getSparseDrawable(R.drawable.baseline_watch_later_10, ColorId.badgeMuted), PorterDuffPaint.get(ColorId.badgeMuted, chat.getScheduleAnimator().getFloatValue()));
     DrawAlgorithms.drawSimplestCheckBox(c, avatarReceiver, isSelected.getFloatValue());
+
+    if (org.thunderdog.challegram.theme.ModDesign.isEnabled() && !isDragging) {
+      // TGX Mod: hairline row divider aligned with the text column (Swiss grid)
+      int separatorHeight = Math.max(1, Screen.dp(.5f));
+      int inset = getLeftPadding(chatListMode);
+      int bottom = getMeasuredHeight();
+      if (rtl) {
+        c.drawRect(0, bottom - separatorHeight, viewWidth - inset, bottom, Paints.fillingPaint(Theme.separatorColor()));
+      } else {
+        c.drawRect(inset, bottom - separatorHeight, viewWidth, bottom, Paints.fillingPaint(Theme.separatorColor()));
+      }
+    }
   }
 
   @Override

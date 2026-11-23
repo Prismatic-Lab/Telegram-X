@@ -50,6 +50,7 @@ import org.thunderdog.challegram.theme.ThemeCustom;
 import org.thunderdog.challegram.theme.ThemeDelegate;
 import org.thunderdog.challegram.theme.ThemeId;
 import org.thunderdog.challegram.theme.ThemeInfo;
+import org.thunderdog.challegram.theme.ModDesign;
 import org.thunderdog.challegram.theme.ThemeManager;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Strings;
@@ -249,6 +250,10 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
               v.setData(R.string.EarpieceModeNever);
               break;
           }
+        } else if (itemId == R.id.btn_modDesign) {
+          v.getToggler().setRadioEnabled(ModDesign.isEnabled(), isUpdate);
+        } else if (itemId == R.id.btn_modAvatarShape) {
+          v.setData(ModDesign.getAvatarShape() == ModDesign.AVATAR_SHAPE_ROUNDED_SQUARE ? R.string.ModAvatarShapeSquare : R.string.ModAvatarShapeCircle);
         } else if (itemId == R.id.btn_separateMedia) {
           v.getToggler().setRadioEnabled(Settings.instance().needSeparateMediaTab(), isUpdate);
         } else if (itemId == R.id.btn_restrictSensitiveContent) {
@@ -377,6 +382,15 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       adapter.setOnLongClickListener(this);
 
       items.add(new ListItem(ListItem.TYPE_EMPTY_OFFSET_SMALL));
+
+      // TGX Mod design
+      items.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, R.string.ModDesign));
+      items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_modDesign, 0, R.string.ModDesignToggle));
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_modAvatarShape, 0, R.string.ModAvatarShape));
+      items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
+      items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.ModDesignInfo));
 
       items.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, R.string.ChatMode));
       items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
@@ -1188,6 +1202,11 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
         Settings.instance().setNewSetting(Settings.SETTING_FLAG_USE_METRIC_FILE_SIZE_UNITS, nowMetric);
         adapter.updateValuedSettingById(R.id.btn_sizeUnit);
       }).setAllowResize(false)); //.setHeaderItem(new SettingItem(SettingItem.TYPE_INFO, 0, 0, UI.getString(R.string.MarkdownHint), false))
+    } else if (viewId == R.id.btn_modDesign) {
+      ModDesign.setEnabled(tdlib, adapter.toggleView(v));
+      adapter.updateValuedSettingById(R.id.btn_modAvatarShape);
+    } else if (viewId == R.id.btn_modAvatarShape) {
+      showModAvatarShapeOptions();
     } else if (viewId == R.id.btn_separateMedia) {
       Settings.instance().setNeedSeparateMediaTab(adapter.toggleView(v));
     } else if (viewId == R.id.btn_restrictSensitiveContent) {
@@ -1681,6 +1700,18 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
         tdlib.ui().postDelayed(() -> getRecyclerView().setItemAnimator(animator), 100);
       }
     }
+  }
+
+  private void showModAvatarShapeOptions () {
+    final boolean isSquare = ModDesign.getAvatarShape() == ModDesign.AVATAR_SHAPE_ROUNDED_SQUARE;
+    showSettings(new SettingsWrapBuilder(R.id.btn_modAvatarShape).setRawItems(new ListItem[] {
+      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_modAvatarShapeCircle, 0, R.string.ModAvatarShapeCircle, R.id.btn_modAvatarShape, !isSquare),
+      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_modAvatarShapeSquare, 0, R.string.ModAvatarShapeSquare, R.id.btn_modAvatarShape, isSquare),
+    }).setIntDelegate((id, result) -> {
+      boolean nowSquare = result.get(R.id.btn_modAvatarShape) == R.id.btn_modAvatarShapeSquare;
+      ModDesign.setAvatarShape(nowSquare ? ModDesign.AVATAR_SHAPE_ROUNDED_SQUARE : ModDesign.AVATAR_SHAPE_CIRCLE);
+      adapter.updateValuedSettingById(R.id.btn_modAvatarShape);
+    }).setAllowResize(false));
   }
 
   private void showChatListOptions () {

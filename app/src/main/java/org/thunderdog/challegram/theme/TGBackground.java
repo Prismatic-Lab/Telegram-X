@@ -246,6 +246,8 @@ public class TGBackground {
       case ThemeId.BLACK_WHITE:
       case ThemeId.NIGHT_BLACK:
       case ThemeId.NIGHT_BLUE:
+      case ThemeId.SWISS_LIGHT: // TGX Mod: plain solid background
+      case ThemeId.SWISS_DARK:
         return 0; // Disabled by default
 
       case ThemeId.BLUE:

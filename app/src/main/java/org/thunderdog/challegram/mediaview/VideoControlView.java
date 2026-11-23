@@ -16,6 +16,9 @@ package org.thunderdog.challegram.mediaview;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.os.Build;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -25,6 +28,8 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
+import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.loader.ImageGalleryFile;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
@@ -52,9 +57,123 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
   private final PlayPauseButton playPauseButton;
 
   public VideoControlView (Context context) {
+    this(context, false);
+  }
+
+  // TGX Mod: minimal (Swiss) player controls
+
+  public interface ModControlsListener {
+    void onSpeedClick (VideoControlView view);
+    void onMuteClick (VideoControlView view);
+    void onRotateClick (VideoControlView view);
+  }
+
+  private static final float MOD_SLIDER_HEIGHT = 24f;
+  private static final float MOD_ROW_HEIGHT = 32f;
+  private static final float MOD_BUTTON_WIDTH = 44f;
+  private static final int MOD_BAR_COLOR = 0xB80F0F0F; // flat, translucent graphite, no gradient
+
+  private final boolean modStyle;
+  private @Nullable LinearLayout modButtonsWrap;
+  private @Nullable TextView modSpeedView;
+  private @Nullable ImageView modMuteView, modRotateView;
+  private @Nullable ModControlsListener modListener;
+
+  public boolean isModStyle () {
+    return modStyle;
+  }
+
+  public VideoControlView (Context context, boolean modStyle) {
     super(context);
+    this.modStyle = modStyle;
 
     setWillNotDraw(false);
+
+    if (modStyle) {
+      sliderView = new SliderView(context);
+      sliderView.setAnchorMode(SliderView.ANCHOR_MODE_START);
+      sliderView.setSlimStyle(true);
+      sliderView.setForceBackgroundColorId(ColorId.videoSliderInactive);
+      sliderView.setForceSecondaryColorId(ColorId.videoSliderInactive);
+      sliderView.setSlideEnabled(true, false);
+      sliderView.setColorId(ColorId.videoSliderActive, false);
+      sliderView.setPadding(Screen.dp(16f), 0, Screen.dp(16f), 0);
+      FrameLayoutFix.LayoutParams sliderParams = FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(MOD_SLIDER_HEIGHT), Gravity.BOTTOM);
+      sliderParams.bottomMargin = Screen.dp(56f - MOD_SLIDER_HEIGHT);
+      sliderView.setLayoutParams(sliderParams);
+      addView(sliderView);
+
+      playPauseButton = new PlayPauseButton(context);
+      FrameLayoutFix.LayoutParams playParams = FrameLayoutFix.newParams(Screen.dp(MOD_BUTTON_WIDTH), Screen.dp(MOD_ROW_HEIGHT), Gravity.LEFT | Gravity.BOTTOM);
+      playParams.leftMargin = Screen.dp(4f);
+      playPauseButton.setLayoutParams(playParams);
+      addView(playPauseButton);
+
+      // "0:12 / 3:45" in one label with tabular figures
+      this.nowView = new NoScrollTextView(context);
+      styleText(nowView);
+      nowView.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+      nowView.setTextColor(0xE6FFFFFF);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        nowView.setFontFeatureSettings("tnum");
+      }
+      FrameLayoutFix.LayoutParams timeParams = FrameLayoutFix.newParams(ViewGroup.LayoutParams.WRAP_CONTENT, Screen.dp(MOD_ROW_HEIGHT), Gravity.LEFT | Gravity.BOTTOM);
+      timeParams.leftMargin = Screen.dp(4f + MOD_BUTTON_WIDTH + 4f);
+      nowView.setLayoutParams(timeParams);
+      addView(nowView);
+
+      this.totalView = new NoScrollTextView(context);
+      styleText(totalView);
+      totalView.setVisibility(View.GONE);
+      totalView.setLayoutParams(FrameLayoutFix.newParams(0, 0));
+      addView(totalView);
+
+      modButtonsWrap = new LinearLayout(context);
+      modButtonsWrap.setOrientation(LinearLayout.HORIZONTAL);
+      FrameLayoutFix.LayoutParams wrapParams = FrameLayoutFix.newParams(ViewGroup.LayoutParams.WRAP_CONTENT, Screen.dp(MOD_ROW_HEIGHT), Gravity.RIGHT | Gravity.BOTTOM);
+      wrapParams.rightMargin = Screen.dp(4f);
+      modButtonsWrap.setLayoutParams(wrapParams);
+
+      modSpeedView = new NoScrollTextView(context);
+      modSpeedView.setId(R.id.btn_modVideoSpeed);
+      modSpeedView.setTextColor(0xE6FFFFFF);
+      modSpeedView.setGravity(Gravity.CENTER);
+      modSpeedView.setSingleLine(true);
+      modSpeedView.setTypeface(Fonts.getRobotoMedium());
+      modSpeedView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12f);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        modSpeedView.setFontFeatureSettings("tnum");
+      }
+      modSpeedView.setContentDescription(Lang.getString(R.string.ModVideoSpeed));
+      modSpeedView.setText(formatSpeed(1f));
+      modSpeedView.setOnClickListener(v -> {
+        if (modListener != null) {
+          modListener.onSpeedClick(this);
+        }
+      });
+      modSpeedView.setLayoutParams(new LinearLayout.LayoutParams(Screen.dp(MOD_BUTTON_WIDTH + 4f), ViewGroup.LayoutParams.MATCH_PARENT));
+      modButtonsWrap.addView(modSpeedView);
+
+      modMuteView = newModIconButton(context, R.id.btn_modVideoMute, R.drawable.baseline_volume_up_24_white, R.string.ModVideoMute);
+      modMuteView.setOnClickListener(v -> {
+        if (modListener != null) {
+          modListener.onMuteClick(this);
+        }
+      });
+      modButtonsWrap.addView(modMuteView);
+
+      modRotateView = newModIconButton(context, R.id.btn_modVideoRotate, R.drawable.tgxmod_baseline_screen_rotation_24, R.string.ModVideoRotate);
+      modRotateView.setOnClickListener(v -> {
+        if (modListener != null) {
+          modListener.onRotateClick(this);
+        }
+      });
+      modButtonsWrap.addView(modRotateView);
+
+      addView(modButtonsWrap);
+      updateModTimeText();
+      return;
+    }
 
     FrameLayoutFix.LayoutParams params;
     params = FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(56f), Gravity.BOTTOM);
@@ -138,8 +257,76 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
     }
   }
 
+  private static ImageView newModIconButton (Context context, int id, int iconRes, int descRes) {
+    ImageView view = new ImageView(context);
+    view.setId(id);
+    view.setScaleType(ImageView.ScaleType.CENTER);
+    view.setImageResource(iconRes);
+    view.setColorFilter(0xE6FFFFFF);
+    view.setContentDescription(Lang.getString(descRes));
+    view.setLayoutParams(new LinearLayout.LayoutParams(Screen.dp(MOD_BUTTON_WIDTH), ViewGroup.LayoutParams.MATCH_PARENT));
+    return view;
+  }
+
+  public void setModControlsListener (@Nullable ModControlsListener listener) {
+    this.modListener = listener;
+  }
+
+  public static String formatSpeed (float speed) {
+    String value;
+    if (speed == (int) speed) {
+      value = Integer.toString((int) speed);
+    } else {
+      value = Float.toString(speed);
+      if (value.startsWith("0")) {
+        value = value.substring(1); // ".5×", ".75×"
+      }
+    }
+    return value + "\u00d7";
+  }
+
+  public void setModPlaybackSpeed (float speed) {
+    if (modSpeedView != null) {
+      modSpeedView.setText(formatSpeed(speed));
+    }
+  }
+
+  public void setModMuted (boolean isMuted) {
+    if (modMuteView != null) {
+      modMuteView.setImageResource(isMuted ? R.drawable.baseline_volume_off_24_white : R.drawable.baseline_volume_up_24_white);
+    }
+  }
+
+  /** Speed / mute make no sense for silent looping GIFs. */
+  public void setModButtonsVisible (boolean speedAndMute, boolean rotate) {
+    if (modSpeedView != null) {
+      modSpeedView.setVisibility(speedAndMute ? View.VISIBLE : View.GONE);
+    }
+    if (modMuteView != null) {
+      modMuteView.setVisibility(speedAndMute ? View.VISIBLE : View.GONE);
+    }
+    if (modRotateView != null) {
+      modRotateView.setVisibility(rotate ? View.VISIBLE : View.GONE);
+    }
+  }
+
+  private void updateModTimeText () {
+    if (modStyle) {
+      String now = Strings.buildDuration(Math.round(nowDurationMs / 1000.0));
+      if (totalDurationMs > 0) {
+        nowView.setText(now + "  /  " + Strings.buildDuration(Math.round(totalDurationMs / 1000.0)));
+      } else {
+        nowView.setText(now);
+      }
+    }
+  }
+
   @Override
   public void onFactorChanged (int id, float factor, float fraction, FactorAnimator callee) {
+    if (modStyle) {
+      playPauseButton.setAlpha(factor);
+      return;
+    }
     int dx = (int) ((float) Screen.dp(32f) * factor);
     nowView.setTranslationX(dx);
     sliderView.setAddPaddingLeft(dx);
@@ -163,6 +350,10 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
 
   public void setInnerAlpha (float alpha) {
     sliderView.setAlpha(alpha);
+    if (modButtonsWrap != null) {
+      modButtonsWrap.setAlpha(alpha);
+      playPauseButton.setAlpha(alpha * showPlayPause.getFloatValue());
+    }
     if (timelineView != null) {
       timelineView.setAlpha(alpha);
     }
@@ -266,7 +457,11 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
   private void setNowMs (long ms) {
     if (this.nowDurationMs != ms) {
       this.nowDurationMs = ms;
-      nowView.setText(Strings.buildDuration(Math.round(ms / 1000.0)));
+      if (modStyle) {
+        updateModTimeText();
+      } else {
+        nowView.setText(Strings.buildDuration(Math.round(ms / 1000.0)));
+      }
     }
   }
 
@@ -275,6 +470,7 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
       boolean changedState = (ms == 0 || totalDurationMs == 0);
       this.totalDurationMs = ms;
       totalView.setText(Strings.buildDuration(Math.round(ms / 1000.0)));
+      updateModTimeText();
       if (changedState) {
         updateSliderAvailability();
       }
@@ -301,6 +497,10 @@ public class VideoControlView extends FrameLayoutFix implements FactorAnimator.T
 
   @Override
   protected void onDraw (Canvas c) {
+    if (modStyle) {
+      c.drawRect(0, getMeasuredHeight() - Screen.dp(56f), getMeasuredWidth(), getMeasuredHeight(), Paints.fillingPaint(MOD_BAR_COLOR));
+      return;
+    }
     c.drawRect(0, getMeasuredHeight() - Screen.dp(56f), getMeasuredWidth(), getMeasuredHeight(), Paints.fillingPaint(Theme.getColor(ColorId.transparentEditor)));
   }
 }

@@ -188,7 +188,7 @@ public class Theme {
   // Base
 
   public static float getProperty (final @PropertyId int propertyId) {
-    return ThemeManager.instance().currentTheme().getProperty(propertyId);
+    return ModDesign.filterProperty(propertyId, ThemeManager.instance().currentTheme().getProperty(propertyId));
   }
 
   @ColorInt
@@ -255,6 +255,10 @@ public class Theme {
         return ColorId.themeRed;
       case ThemeId.WHITE_BLACK:
         return ColorId.themeWhiteBlack;
+      case ThemeId.SWISS_LIGHT:
+        return ColorId.themeSwissLight;
+      case ThemeId.SWISS_DARK:
+        return ColorId.themeSwissDark;
     }
     throw newError(themeId, "themeId");
   }

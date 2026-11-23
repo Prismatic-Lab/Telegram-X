@@ -42,6 +42,10 @@ public class MediaCellViewDetector implements FactorAnimator.Target {
     void onZoom ();
     void onClick (float x, float y);
     boolean canDoubleTap(float x, float y);
+    // TGX Mod: double tap on the left / right edge of a video seeks instead of zooming
+    default boolean onSideDoubleTap (float x, float y) {
+      return false;
+    }
 
     boolean canMoveZoomedView ();
 
@@ -151,6 +155,9 @@ public class MediaCellViewDetector implements FactorAnimator.Target {
   }
 
   private void performDoubleTap (float x, float y) {
+    if (zoom == 1f && callback.onSideDoubleTap(x, y)) {
+      return;
+    }
     if (zoom > 1f) {
       animatePosition(1f, pivotX, pivotY, 0f, 0f, true);
       ViewUtils.onClick(target);

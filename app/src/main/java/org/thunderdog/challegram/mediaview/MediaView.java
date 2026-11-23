@@ -128,6 +128,15 @@ public class MediaView extends FrameLayoutFix {
     }
   }
 
+  public void setModPlayback (boolean enabled, float speed, boolean muted) {
+    if (baseCell != null) {
+      baseCell.setModPlayback(enabled, speed, muted);
+    }
+    if (previewCell != null) {
+      previewCell.setModPlayback(enabled, speed, muted);
+    }
+  }
+
   public void setCellCallback (MediaCellView.Callback callback) {
     baseCell.setCallback(callback);
     if (previewCell != null) {

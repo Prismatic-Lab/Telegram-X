@@ -1917,6 +1917,50 @@ public class MediaCellView extends ViewGroup implements
     void onPlayPause (MediaItem item, boolean isPlaying);
     void onPlayStarted (MediaItem item, boolean isPlaying);
     void onSeekSecondaryProgress (MediaItem item, float offset, float progress);
+    default void onDoubleTapSeek (MediaItem item, int direction, long deltaMs) { }
+  }
+
+  // TGX Mod: viewer playback state (applied to the player once it exists)
+
+  public static final long MOD_SEEK_STEP_MS = 10_000;
+  private boolean modEnabled, modMuted;
+  private float modSpeed = 1f;
+
+  public void setModPlayback (boolean enabled, float speed, boolean muted) {
+    this.modEnabled = enabled;
+    this.modSpeed = speed;
+    this.modMuted = muted;
+    applyModPlayback();
+  }
+
+  private void applyModPlayback () {
+    if (playerView != null && modEnabled) {
+      playerView.setPlaybackSpeed(modSpeed);
+      playerView.setUserMuted(modMuted);
+    }
+  }
+
+  @Override
+  public boolean onSideDoubleTap (float x, float y) {
+    if (!modEnabled || media == null || !media.isVideo() || media.isGifType() || playerView == null || !media.canSeekVideo()) {
+      return false;
+    }
+    int width = getMeasuredWidth();
+    int direction;
+    if (x < width * .3f) {
+      direction = -1;
+    } else if (x > width * .7f) {
+      direction = 1;
+    } else {
+      return false;
+    }
+    if (!playerView.seekBy(direction * MOD_SEEK_STEP_MS)) {
+      return false;
+    }
+    if (callback != null) {
+      callback.onDoubleTapSeek(media, direction, MOD_SEEK_STEP_MS);
+    }
+    return true;
   }
 
   private Callback callback;
@@ -2047,6 +2091,7 @@ public class MediaCellView extends ViewGroup implements
       });
       playerView.forceLooping(forceTouchMode);
       playerView.setCallback(this);
+      applyModPlayback();
       hideStaticView = true;
       addView(videoParentView, 0);
       checkPostRotation(false);

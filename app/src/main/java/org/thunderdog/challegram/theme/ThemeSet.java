@@ -111,6 +111,10 @@ public class ThemeSet {
         return new ThemeNightBlack();
       case ThemeId.BLACK_WHITE:
         return new ThemeBlackWhite();
+      case ThemeId.SWISS_LIGHT:
+        return new ThemeSwissLight();
+      case ThemeId.SWISS_DARK:
+        return new ThemeSwissDark();
 
       case ThemeId.NONE:
       case ThemeId.TEMPORARY:

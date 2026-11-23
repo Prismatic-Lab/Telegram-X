@@ -6080,4 +6080,18 @@
   <string name="ActionStarGiftPurchaseOfferRejected">Offer to buy %1$s for %2$s was rejected</string>
   <string name="ActionStarGiftPurchaseOfferExpired">Offer to buy %1$s for %2$s expired</string>
 
+  <!-- TGX Mod design -->
+  <string name="ThemeSwissLight">Swiss Light</string>
+  <string name="ThemeSwissDark">Swiss Dark</string>
+  <string name="ModDesign">TGX Mod design</string>
+  <string name="ModDesignToggle">Use TGX Mod design</string>
+  <string name="ModDesignInfo">Minimal neutral themes (Swiss Light / Swiss Dark), flat surfaces, hairline dividers and a redesigned video player. Turn off to restore the original Telegram X look. Some layout changes apply after restarting the app.</string>
+  <string name="ModAvatarShape">Avatar shape</string>
+  <string name="ModAvatarShapeCircle">Circle</string>
+  <string name="ModAvatarShapeSquare">Rounded square</string>
+  <string name="ModVideoSpeed">Playback speed</string>
+  <string name="ModVideoMute">Mute</string>
+  <string name="ModVideoRotate">Rotate screen</string>
+  <string name="ModVideoSeekBack">−%1$d s</string>
+  <string name="ModVideoSeekForward">+%1$d s</string>
 </resources>

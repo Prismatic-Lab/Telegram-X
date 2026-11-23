@@ -389,12 +389,12 @@ public class TdlibSettingsManager implements CleanupStartupDelegate {
     final int accountId = tdlib.id();
     SharedPreferences.Editor editor = null;
     if (isDark && globalDaylightTheme() == themeId) {
-      int dayThemeId = parentThemeId == 0 || Theme.isDarkTheme(parentThemeId) ? ThemeManager.DEFAULT_LIGHT_THEME : parentThemeId;
+      int dayThemeId = parentThemeId == 0 || Theme.isDarkTheme(parentThemeId) ? org.thunderdog.challegram.theme.ModDesign.defaultLightTheme() : parentThemeId;
       editor = Settings.instance().edit();
       editor.putInt(key(THEME_GLOBAL_THEME_DAYLIGHT_KEY, accountId), ThemeManager.saveThemeId(_globalThemeDaylight = dayThemeId));
       editor.putInt(key(THEME_GLOBAL_THEME_NIGHT_KEY, accountId), ThemeManager.saveThemeId(_globalThemeNight = themeId));
     } else if (!isDark && globalNightTheme() == themeId) {
-      int nightThemeId = parentThemeId == 0 || !Theme.isDarkTheme(parentThemeId) ? ThemeManager.DEFAULT_DARK_THEME : parentThemeId;
+      int nightThemeId = parentThemeId == 0 || !Theme.isDarkTheme(parentThemeId) ? org.thunderdog.challegram.theme.ModDesign.defaultDarkTheme() : parentThemeId;
       editor = Settings.instance().edit();
       editor.putInt(key(THEME_GLOBAL_THEME_NIGHT_KEY, accountId), ThemeManager.saveThemeId(_globalThemeNight = nightThemeId));
       editor.putInt(key(THEME_GLOBAL_THEME_DAYLIGHT_KEY, accountId), ThemeManager.saveThemeId(_globalThemeDaylight = themeId));
@@ -410,12 +410,12 @@ public class TdlibSettingsManager implements CleanupStartupDelegate {
 
     SharedPreferences.Editor editor = null;
     if (isDark && globalThemeDaylight == themeId) {
-      int dayThemeId = parentThemeId == 0 || Theme.isDarkTheme(parentThemeId) ? ThemeManager.DEFAULT_LIGHT_THEME : parentThemeId;
+      int dayThemeId = parentThemeId == 0 || Theme.isDarkTheme(parentThemeId) ? org.thunderdog.challegram.theme.ModDesign.defaultLightTheme() : parentThemeId;
       editor = Settings.instance().edit();
       editor.putInt(key(THEME_GLOBAL_THEME_DAYLIGHT_KEY, accountId), ThemeManager.saveThemeId(globalThemeDaylight = dayThemeId));
       editor.putInt(key(THEME_GLOBAL_THEME_NIGHT_KEY, accountId), ThemeManager.saveThemeId(globalThemeNight = themeId));
     } else if (!isDark && globalThemeNight == themeId) {
-      int nightThemeId = parentThemeId == 0 || !Theme.isDarkTheme(parentThemeId) ? ThemeManager.DEFAULT_DARK_THEME : parentThemeId;
+      int nightThemeId = parentThemeId == 0 || !Theme.isDarkTheme(parentThemeId) ? org.thunderdog.challegram.theme.ModDesign.defaultDarkTheme() : parentThemeId;
       editor = Settings.instance().edit();
       editor.putInt(key(THEME_GLOBAL_THEME_NIGHT_KEY, accountId), ThemeManager.saveThemeId(globalThemeNight = nightThemeId));
       editor.putInt(key(THEME_GLOBAL_THEME_DAYLIGHT_KEY, accountId), ThemeManager.saveThemeId(globalThemeDaylight = themeId));

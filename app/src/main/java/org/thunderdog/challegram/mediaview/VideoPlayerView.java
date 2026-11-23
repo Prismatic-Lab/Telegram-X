@@ -301,6 +301,9 @@ public class VideoPlayerView implements Player.Listener, CallManager.CurrentCall
       this.player = U.newExoPlayer(context, preferExtensions);
       this.player.addListener(this);
       checkMuted();
+      if (playbackSpeed != 1f) {
+        this.player.setPlaybackSpeed(playbackSpeed);
+      }
       this.player.setVideoTextureView(renderView);
 
       // FIXME: Must not be just a timeout alert.
@@ -711,8 +714,48 @@ public class VideoPlayerView implements Player.Listener, CallManager.CurrentCall
     }
   }
 
+  // TGX Mod: viewer-level mute & playback speed
+
+  private boolean userMuted;
+  private float playbackSpeed = 1f;
+
+  public void setUserMuted (boolean userMuted) {
+    if (this.userMuted != userMuted) {
+      this.userMuted = userMuted;
+      checkMuted();
+    }
+  }
+
+  public void setPlaybackSpeed (float speed) {
+    if (speed <= 0f) {
+      speed = 1f;
+    }
+    if (this.playbackSpeed != speed) {
+      this.playbackSpeed = speed;
+      if (player != null) {
+        player.setPlaybackSpeed(speed);
+      }
+    }
+  }
+
+  /** Seeks relative to the current position; returns false when seeking is impossible. */
+  public boolean seekBy (long deltaMs) {
+    if (player == null) {
+      return false;
+    }
+    long duration = player.getDuration();
+    long position = player.getCurrentPosition() + deltaMs;
+    if (duration != C.TIME_UNSET) {
+      position = Math.min(position, Math.max(0, duration - 1));
+    }
+    position = Math.max(0, position);
+    player.seekTo(position);
+    updateTimes();
+    return true;
+  }
+
   private void checkMuted () {
-    boolean muted = isMuted || forcelyMuted;
+    boolean muted = isMuted || forcelyMuted || userMuted;
     if (player != null) {
       player.setVolume(muted ? 0f : 1f);
     }

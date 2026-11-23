@@ -918,7 +918,7 @@ public class HeaderView extends FrameLayoutFix implements View.OnClickListener, 
     text.setGravity(Gravity.LEFT);
     text.setSingleLine();
     text.setEllipsize(TextUtils.TruncateAt.END);
-    text.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 19f);
+    text.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.thunderdog.challegram.theme.ModDesign.isEnabled() ? org.thunderdog.challegram.theme.ModDesign.HEADER_TITLE_SIZE : 19f);
     text.setTextColor(0xffffffff);
     text.setLayoutParams(params);
     return text;
@@ -1197,17 +1197,20 @@ public class HeaderView extends FrameLayoutFix implements View.OnClickListener, 
       return;
     boolean updated;
     int top = Screen.dp(15f) + currentHeaderOffset;
+    final boolean modDesign = org.thunderdog.challegram.theme.ModDesign.isEnabled();
+    final int backMargin = Screen.dp(modDesign ? org.thunderdog.challegram.theme.ModDesign.HEADER_TITLE_MARGIN_BACK : 68f);
+    final int plainMargin = Screen.dp(modDesign ? org.thunderdog.challegram.theme.ModDesign.HEADER_TITLE_MARGIN : 18f);
     if (item.getBackButton() != BackHeaderButton.TYPE_NONE) {
       if (Lang.rtl()) {
-        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), menuWidth, top, Screen.dp(68f), 0);
+        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), menuWidth, top, backMargin, 0);
       } else {
-        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), Screen.dp(68f), top, menuWidth, 0);
+        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), backMargin, top, menuWidth, 0);
       }
     } else {
       if (Lang.rtl()) {
-        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), menuWidth, top, Screen.dp(18f), 0);
+        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), menuWidth, top, plainMargin, 0);
       } else {
-        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), Screen.dp(18f), top, menuWidth, 0);
+        updated = Views.setMargins((FrameLayout.LayoutParams) textTitle.getLayoutParams(), plainMargin, top, menuWidth, 0);
       }
     }
     if (updated)

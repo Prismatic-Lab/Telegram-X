@@ -308,6 +308,16 @@ public class SliderView extends View implements FactorAnimator.Target {
     }
   }
 
+  // TGX Mod: thin line, small thumb, tap anywhere on the line to seek
+  private boolean slimStyle;
+
+  public void setSlimStyle (boolean slimStyle) {
+    if (this.slimStyle != slimStyle) {
+      this.slimStyle = slimStyle;
+      invalidate();
+    }
+  }
+
   private int getTotalPaddingLeft () {
     return getPaddingLeft() + addPaddingLeft;
   }
@@ -332,6 +342,17 @@ public class SliderView extends View implements FactorAnimator.Target {
           diffX = x - cx;
           setIsUp(true);
           return true;
+        }
+
+        if (slimStyle && anchorMode == ANCHOR_MODE_START && valueCount <= 1 && slideEnabled && (changeAnimator == null || !changeAnimator.isAnimating()) && (listener == null || listener.allowSliderChanges(this))) {
+          int left = getTotalPaddingLeft();
+          int right = getMeasuredWidth() - getTotalPaddingRight();
+          if (x >= left - Screen.dp(8f) && x <= right + Screen.dp(8f) && right > left) {
+            diffX = 0;
+            setIsUp(true);
+            changeValue(Math.max(0f, Math.min(1f, (x - left) / (float) (right - left))));
+            return true;
+          }
         }
 
         return false;
@@ -408,7 +429,7 @@ public class SliderView extends View implements FactorAnimator.Target {
 
   @Override
   protected void onDraw (Canvas c) {
-    int height = Screen.dp(1f);
+    int height = slimStyle ? Math.max(1, Screen.dp(.75f)) : Screen.dp(1f);
 
     int left = getTotalPaddingLeft();
     int right = getMeasuredWidth() - getTotalPaddingRight();
@@ -493,7 +514,7 @@ public class SliderView extends View implements FactorAnimator.Target {
       }
     }
 
-    int radius = Screen.dp(6f) + (int) ((float) Screen.dp(4f) * upFactor);
+    int radius = slimStyle ? Screen.dp(4f) + (int) ((float) Screen.dp(3f) * upFactor) : Screen.dp(6f) + (int) ((float) Screen.dp(4f) * upFactor);
     c.drawCircle(cx, cy, radius, Paints.fillingPaint(color));
 
     if (smallX != -1 && Math.abs(cx - smallX) < radius + smallRadius) {

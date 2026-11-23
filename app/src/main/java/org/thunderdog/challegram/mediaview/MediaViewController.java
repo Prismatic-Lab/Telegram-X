@@ -15,6 +15,7 @@
 package org.thunderdog.challegram.mediaview;
 
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -129,6 +130,7 @@ import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeDelegate;
+import org.thunderdog.challegram.theme.ModDesign;
 import org.thunderdog.challegram.theme.ThemeId;
 import org.thunderdog.challegram.theme.ThemeSet;
 import org.thunderdog.challegram.tool.Drawables;
@@ -3302,6 +3304,10 @@ public class MediaViewController extends ViewController<MediaViewController.Args
           }
           videoSliderView.setFile(stack.getCurrent().getSourceGalleryFile());
           MediaItem item = stack.getCurrent();
+          if (videoSliderView.isModStyle()) {
+            videoSliderView.setModButtonsVisible(!item.isGifType(), true);
+            applyModPlayback();
+          }
           videoSliderView.setShowPlayPause(item.isVideoOrGif(), animated && videoFactor != 0f);
           videoSliderView.setIsPlaying(false, true);
           videoSliderView.setSlideEnabled(item.canSeekVideo());
@@ -3331,6 +3337,10 @@ public class MediaViewController extends ViewController<MediaViewController.Args
         MediaItem item = stack.getCurrent();
         videoSliderView.updateSecondarySeek(TD.getFileOffsetProgress(item.getTargetFile()), TD.getFilePrefixProgress(item.getTargetFile()));
         videoSliderView.setFile(item.getSourceGalleryFile());
+        if (videoSliderView.isModStyle()) {
+          videoSliderView.setModButtonsVisible(!item.isGifType(), true);
+          applyModPlayback();
+        }
         videoSliderView.setShowPlayPause(item.isVideoOrGif(), animated);
         videoSliderView.setIsPlaying(false, true);
         videoSliderView.setSlideEnabled(item.canSeekVideo());
@@ -3339,6 +3349,68 @@ public class MediaViewController extends ViewController<MediaViewController.Args
           updatePipState(true);
         }
       }
+    }
+  }
+
+  // TGX Mod: minimal video player controls (speed, mute, rotate, ±10 s double tap)
+
+  private static final float[] MOD_SPEEDS = {1f, 1.25f, 1.5f, 2f, .5f, .75f};
+  private float modSpeed = 1f;
+  private boolean modMuted, modLandscape;
+  private @Nullable ModSeekIndicatorView modSeekIndicator;
+
+  private void setupModVideoControls (VideoControlView controls) {
+    controls.setModControlsListener(new VideoControlView.ModControlsListener() {
+      @Override
+      public void onSpeedClick (VideoControlView view) {
+        int index = 0;
+        for (int i = 0; i < MOD_SPEEDS.length; i++) {
+          if (MOD_SPEEDS[i] == modSpeed) {
+            index = i;
+            break;
+          }
+        }
+        modSpeed = MOD_SPEEDS[(index + 1) % MOD_SPEEDS.length];
+        view.setModPlaybackSpeed(modSpeed);
+        applyModPlayback();
+      }
+
+      @Override
+      public void onMuteClick (VideoControlView view) {
+        modMuted = !modMuted;
+        view.setModMuted(modMuted);
+        applyModPlayback();
+      }
+
+      @Override
+      public void onRotateClick (VideoControlView view) {
+        modLandscape = !modLandscape;
+        context().setOrientation(modLandscape ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+      }
+    });
+    modSeekIndicator = new ModSeekIndicatorView(context());
+    modSeekIndicator.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    contentView.addView(modSeekIndicator);
+    applyModPlayback();
+  }
+
+  private void applyModPlayback () {
+    if (mediaView != null && videoSliderView != null && videoSliderView.isModStyle()) {
+      mediaView.setModPlayback(true, modSpeed, modMuted);
+    }
+  }
+
+  private void resetModOrientation () {
+    if (modLandscape) {
+      modLandscape = false;
+      context().setOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+    }
+  }
+
+  @Override
+  public void onDoubleTapSeek (MediaItem item, int direction, long deltaMs) {
+    if (stack.getCurrent() == item && modSeekIndicator != null) {
+      modSeekIndicator.show(direction, (int) (deltaMs / 1000));
     }
   }
 
@@ -5319,13 +5391,16 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
         bottomWrap.addView(this.captionWrapView);
 
-        videoSliderView = new VideoControlView(context);
+        videoSliderView = new VideoControlView(context, ModDesign.isEnabled());
         videoSliderView.setOnPlayPauseClick(v -> {
           FileProgressComponent c = stack.getCurrent().getFileProgress();
           if (c != null) {
             c.performClick(v);
           }
         });
+        if (videoSliderView.isModStyle()) {
+          setupModVideoControls(videoSliderView);
+        }
         videoSliderView.setSliderListener(this);
         videoSliderView.setInnerAlpha(0f);
         videoSliderView.setAlpha(0f);
@@ -5496,6 +5571,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
   @Override
   public void destroy () {
     super.destroy();
+    resetModOrientation();
     MediaItem current = stack.getCurrent();
     if (current != null && current.isViewOnce()) {
       current.viewContent(true);
