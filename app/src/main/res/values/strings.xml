@@ -3829,6 +3829,15 @@
   <string name="xVotes_one">%1$s vote</string>
   <string name="xVotes_other">%1$s votes</string>
   <string name="NoVotes">No votes</string>
+  <string name="Checklist">Checklist</string>
+  <string name="ChecklistGroup">Group checklist</string>
+  <string name="ChecklistXOfYCompleted_one">%2$s of %1$s task completed</string>
+  <string name="ChecklistXOfYCompleted_other">%2$s of %1$s tasks completed</string>
+  <string name="ChecklistCompletedBy">Completed by %1$s</string>
+  <string name="ChecklistAddTask">Add a task</string>
+  <string name="ChecklistAddTaskDone">Add</string>
+  <string name="ChecklistTaskPlaceholder">Task</string>
+  <string name="ChecklistCantMarkTasks">You can\'t mark tasks in this checklist</string>
 
   <string name="xAnswers_one">%1$s answer</string>
   <string name="xAnswers_other">%1$s answers</string>
