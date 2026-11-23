@@ -182,6 +182,10 @@ public class CommandKeyboardLayout extends ViewGroup implements ViewTreeObserver
         callback.onRequestContact(oneTime);
         break;
       }
+      case TdApi.KeyboardButtonTypeWebApp.CONSTRUCTOR: {
+        callback.onRequestWebApp(button.text, ((TdApi.KeyboardButtonTypeWebApp) button.type).url, oneTime);
+        break;
+      }
     }
   }
 
@@ -316,6 +320,7 @@ public class CommandKeyboardLayout extends ViewGroup implements ViewTreeObserver
     void onRequestPoll (boolean oneTime, boolean forceQuiz, boolean forceRegular);
     void onDestroyCommandKeyboard ();
     void onResizeCommandKeyboard (int size);
+    default void onRequestWebApp (String buttonText, String url, boolean oneTime) { }
   }
 
   // TODO: 13/08/15 Merge this code with EmojiLayout

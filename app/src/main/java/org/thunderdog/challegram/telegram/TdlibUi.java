@@ -4118,10 +4118,6 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeLiveStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeStoryAlbum.CONSTRUCTOR:
 
-      case TdApi.InternalLinkTypeAttachmentMenuBot.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeWebApp.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeMainWebApp.CONSTRUCTOR:
-
       case TdApi.InternalLinkTypeInvoice.CONSTRUCTOR:
 
       case TdApi.InternalLinkTypeRestorePurchases.CONSTRUCTOR:
@@ -4152,6 +4148,17 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeTonConnect.CONSTRUCTOR:
       case TdApi.InternalLinkTypeTonWalletTransfer.CONSTRUCTOR: {
         unsupported.run();
+        break;
+      }
+
+      case TdApi.InternalLinkTypeAttachmentMenuBot.CONSTRUCTOR:
+      case TdApi.InternalLinkTypeWebApp.CONSTRUCTOR:
+      case TdApi.InternalLinkTypeMainWebApp.CONSTRUCTOR: {
+        if (org.thunderdog.challegram.ui.WebAppLauncher.isEnabled()) {
+          org.thunderdog.challegram.ui.WebAppLauncher.openInternalLink(context, tdlib, linkType, after);
+        } else {
+          unsupported.run();
+        }
         break;
       }
 

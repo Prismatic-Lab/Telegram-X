@@ -325,6 +325,8 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
           v.getToggler().setRadioEnabled(Settings.instance().needSendByEnter(), isUpdate);
         } else if (itemId == R.id.btn_toggleNewSetting || itemId == R.id.btn_wrapCodeBlocks) {
           updateSettingView(v, item, isUpdate);
+        } else if (itemId == R.id.btn_miniApps) {
+          v.getToggler().setRadioEnabled(WebAppLauncher.isEnabled(), isUpdate);
         } else if (itemId == R.id.btn_updateAutomatically) {
           int mode = Settings.instance().getAutoUpdateMode();
           v.getToggler().setRadioEnabled(mode != Settings.AUTO_UPDATE_MODE_NEVER, isUpdate);
@@ -607,6 +609,10 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_toggleNewSetting, 0, R.string.OpenEmbed).setLongId(Settings.SETTING_FLAG_NO_EMBEDS).setBoolValue(true));
       items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
       items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownString(this, R.string.OpenEmbedDesc), false));
+      items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_miniApps, 0, R.string.WebAppSetting));
+      items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
+      items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.WebAppSettingDesc));
       items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
       items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_sizeUnit, 0, R.string.SizeUnit));
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
@@ -1258,6 +1264,8 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       Settings.instance().setNeedSendByEnter(adapter.toggleView(v));
     } else if (viewId == R.id.btn_toggleNewSetting || viewId == R.id.btn_wrapCodeBlocks) {
       handleSettingClick(v, adapter);
+    } else if (viewId == R.id.btn_miniApps) {
+      WebAppLauncher.setEnabled(adapter.toggleView(v));
     } else if (viewId == R.id.btn_subscribeToBeta) {
       tdlib.ui().subscribeToBeta(this);
     } else if (viewId == R.id.btn_checkUpdates) {

@@ -1473,4 +1473,12 @@
   <item type="id" name="btn_modVideoSpeed" />
   <item type="id" name="btn_modVideoMute" />
   <item type="id" name="btn_modVideoRotate" />
+  <item type="id" name="controller_webApp" />
+  <item type="id" name="menu_webApp" />
+  <item type="id" name="btn_webAppSettings" />
+  <item type="id" name="btn_webAppReload" />
+  <item type="id" name="btn_webAppOpenBot" />
+  <item type="id" name="btn_webAppShare" />
+  <item type="id" name="btn_webAppRemoveFromMenu" />
+  <item type="id" name="btn_miniApps" />
 </resources>

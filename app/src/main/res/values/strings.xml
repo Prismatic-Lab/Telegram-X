@@ -6118,4 +6118,24 @@
   <string name="ModVideoRotate">Rotate screen</string>
   <string name="ModVideoSeekBack">−%1$d s</string>
   <string name="ModVideoSeekForward">+%1$d s</string>
+  <string name="WebAppMenu">Menu</string>
+  <string name="WebAppReload">Reload Page</string>
+  <string name="WebAppRemoveFromMenu">Remove From Menu</string>
+  <string name="WebAppRemoveFromMenuConfirm">Remove %1$s from the attachment menu?</string>
+  <string name="WebAppRemovedFromMenu">%1$s removed from the menu</string>
+  <string name="WebAppAddToMenu">Add</string>
+  <string name="WebAppAddToMenuConfirm">Add %1$s to the attachment menu?</string>
+  <string name="WebAppCloseConfirm">Changes that you made may not be saved.</string>
+  <string name="WebAppCloseAnyway">Close anyway</string>
+  <string name="WebAppClose">Close</string>
+  <string name="WebAppInsecureUrl">This mini app can\'t be opened: only https links are allowed</string>
+  <string name="WebAppPaymentsUnsupported">Payments are not supported in this app yet</string>
+  <string name="WebAppPhoneRequest">%1$s wants your phone number. Share it with the bot?</string>
+  <string name="WebAppShareAction">Share</string>
+  <string name="WebAppWriteAccessRequest">%1$s would like to send you messages.</string>
+  <string name="WebAppOpenConfirm">%1$s would like to open its mini app. It will be able to access your IP address and basic profile info: name, username, language and Premium status.</string>
+  <string name="WebAppOpenConfirmWriteAccess">%1$s by %2$s would like to open and send you messages. It will be able to access your IP address and basic profile info: name, username, language and Premium status.</string>
+  <string name="WebAppOpenAction">Open</string>
+  <string name="WebAppSetting">Bot Mini Apps</string>
+  <string name="WebAppSettingDesc">Open bot mini apps (web apps) inside Telegram X. When disabled, mini app buttons open in the browser.</string>
 </resources>

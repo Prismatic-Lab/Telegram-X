@@ -932,6 +932,13 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
     }
 
     final ViewController<?> c = UI.getCurrentStackItem(getContext());
+    final String webAppUrl = button.webAppUrl();
+    if (webAppUrl != null) {
+      if (c != null) {
+        org.thunderdog.challegram.ui.WebAppLauncher.openFromInlineMode(c, delegate.tdlib(), button.getUserId(), webAppUrl);
+      }
+      return;
+    }
     long sourceChatId = 0;
     if (c instanceof MessagesController) {
       if (((MessagesController) c).comparePrivateUserId(button.getUserId())) {

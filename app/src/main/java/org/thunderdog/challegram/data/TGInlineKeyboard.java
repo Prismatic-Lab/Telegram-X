@@ -1159,9 +1159,17 @@ public class TGInlineKeyboard {
       switch (type.getConstructor()) {
         case TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR:
         case TdApi.InlineKeyboardButtonTypeCopyText.CONSTRUCTOR:
-        case TdApi.InlineKeyboardButtonTypeWebApp.CONSTRUCTOR:
           // TODO
           break;
+        case TdApi.InlineKeyboardButtonTypeWebApp.CONSTRUCTOR: {
+          final String url = ((TdApi.InlineKeyboardButtonTypeWebApp) type).url;
+          flags |= FLAG_BLOCKED;
+          UI.post(() -> {
+            flags &= ~FLAG_BLOCKED;
+            org.thunderdog.challegram.ui.WebAppLauncher.openFromInlineButton(context.context.controller(), context.context.tdlib(), parent.getMessage(), url, context.context.messagesController());
+          }, ANIMATION_DURATION / 2);
+          break;
+        }
 
         case TdApi.InlineKeyboardButtonTypeCallbackWithPassword.CONSTRUCTOR: {
           final TdApi.InlineKeyboardButtonTypeCallbackWithPassword callbackWithPassword = (TdApi.InlineKeyboardButtonTypeCallbackWithPassword) type;

@@ -1121,6 +1121,16 @@ public class MessagesController extends ViewController<MessagesController.Argume
     emojiButton.setOnClickListener(this);
     emojiButton.setLayoutParams(params);
 
+    botMenuButton = WebAppLauncher.newMenuButtonView(context, this);
+    botMenuButton.setVisibility(View.GONE);
+    botMenuButton.setOnClickListener(v -> openBotMenuWebApp());
+    params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Screen.dp(30f));
+    params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+    params.addRule(Lang.rtl() ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT);
+    params.topMargin = Screen.dp(9.5f);
+    params.leftMargin = params.rightMargin = Screen.dp(8f);
+    botMenuButton.setLayoutParams(params);
+
     params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Screen.dp(49f));
     params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
     if (Lang.rtl()) {
@@ -1474,6 +1484,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     if (previewMode == PREVIEW_MODE_NONE) {
       contentView.addView(emojiButton);
+      contentView.addView(botMenuButton);
       contentView.addView(attachButtons);
       contentView.addView(sendButton);
       contentView.addView(messageSenderButton);
@@ -2933,6 +2944,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
         break;
       }
     }
+    updateBotMenuButton();
 
     // Loading bot information after the messages to display them faster
 
@@ -7705,6 +7717,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     sendButton.setTranslationY(y);
     emojiButton.setTranslationY(y);
+    if (botMenuButton != null) {
+      botMenuButton.setTranslationY(y);
+      checkBotMenuButtonVisibility();
+    }
     attachButtons.setTranslationY(y);
     messageSenderButton.setTranslationY(y);
 
@@ -7786,6 +7802,71 @@ public class MessagesController extends ViewController<MessagesController.Argume
       });
       builder.setNegativeButton(Lang.getString(R.string.Cancel), (dialog, which) -> dialog.dismiss());
       showAlert(builder);
+    }
+  }
+
+  @Override
+  public void onRequestWebApp (String buttonText, String url, boolean oneTime) {
+    if (chat != null && ChatId.isPrivate(chat.id) && tdlib.isBotChat(chat)) {
+      WebAppLauncher.openFromKeyboardButton(this, tdlib.chatUserId(chat), buttonText, url);
+    }
+  }
+
+  // Bot menu button (Mini App)
+
+  private TextView botMenuButton;
+  private @Nullable TdApi.BotMenuButton botMenuButtonInfo;
+  private int botMenuButtonShift;
+
+  private void updateBotMenuButton () {
+    if (botMenuButton == null) {
+      return;
+    }
+    TdApi.BotMenuButton menuButton = null;
+    if (chat != null && ChatId.isPrivate(chat.id) && tdlib.isBotChat(chat) && !isInForceTouchMode()) {
+      TdApi.UserFullInfo userFull = tdlib.cache().userFull(TD.getUserId(chat), false);
+      if (userFull != null && userFull.botInfo != null && WebAppLauncher.isWebAppMenuButton(userFull.botInfo.menuButton)) {
+        menuButton = userFull.botInfo.menuButton;
+      }
+    }
+    botMenuButtonInfo = menuButton;
+    if (menuButton != null) {
+      String text = StringUtils.isEmpty(menuButton.text) ? Lang.getString(R.string.WebAppMenu) : menuButton.text;
+      botMenuButton.setText(text);
+      int width = Math.min(Screen.dp(120f), (int) Math.ceil(botMenuButton.getPaint().measureText(text)) + Screen.dp(20f));
+      if (botMenuButton.getLayoutParams().width != width) {
+        botMenuButton.getLayoutParams().width = width;
+        botMenuButton.requestLayout();
+      }
+      WebAppLauncher.updateMenuButtonColors(botMenuButton);
+    }
+    checkBotMenuButtonVisibility();
+  }
+
+  private void checkBotMenuButtonVisibility () {
+    if (botMenuButton == null || inputView == null) {
+      return;
+    }
+    boolean visible = botMenuButtonInfo != null && emojiButton.getVisibility() == View.VISIBLE;
+    int shift = visible ? Math.max(0, botMenuButton.getLayoutParams().width) + Screen.dp(8f) : 0;
+    if (botMenuButton.getVisibility() != (visible ? View.VISIBLE : View.GONE)) {
+      botMenuButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+    if (botMenuButtonShift != shift) {
+      int diff = shift - botMenuButtonShift;
+      botMenuButtonShift = shift;
+      emojiButton.setTranslationX(Lang.rtl() ? -shift : shift);
+      if (Lang.rtl()) {
+        inputView.setPadding(inputView.getPaddingLeft(), inputView.getPaddingTop(), inputView.getPaddingRight() + diff, inputView.getPaddingBottom());
+      } else {
+        inputView.setPadding(inputView.getPaddingLeft() + diff, inputView.getPaddingTop(), inputView.getPaddingRight(), inputView.getPaddingBottom());
+      }
+    }
+  }
+
+  private void openBotMenuWebApp () {
+    if (chat != null && botMenuButtonInfo != null) {
+      WebAppLauncher.openFromMenuButton(this, TD.getUserId(chat), botMenuButtonInfo);
     }
   }
 
@@ -11432,6 +11513,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     tdlib.ui().post(() -> {
       if (chat != null && TD.getUserId(chat) == userId) {
         updateBottomBar(true);
+        updateBotMenuButton();
       }
     });
   }

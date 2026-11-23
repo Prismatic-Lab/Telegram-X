@@ -8881,7 +8881,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
   @TdlibThread
   private void updateWebAppMessageSent (TdApi.UpdateWebAppMessageSent update) {
-    // TODO
+    org.thunderdog.challegram.ui.WebAppController.onWebAppMessageSent(this, update.webAppLaunchId);
   }
 
   // Updates: NOTIFICATIONS

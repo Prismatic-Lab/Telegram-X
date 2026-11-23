@@ -137,8 +137,13 @@ public class WebkitController<T> extends ViewController<T> {
     onCreateWebView(headerCell, webView);
 
     contentView.addView(webView);
+    onCreateContentView(contentView, webView);
 
     return contentView;
+  }
+
+  protected void onCreateContentView (FrameLayoutFix contentView, WebView webView) {
+    // override
   }
 
   @Override
