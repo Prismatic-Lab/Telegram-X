@@ -391,6 +391,16 @@ public class TdlibListeners {
   }
 
   @AnyThread
+  public void addStoryListener (StoryListener listener) {
+    storyListeners.add(listener);
+  }
+
+  @AnyThread
+  public void removeStoryListener (StoryListener listener) {
+    storyListeners.remove(listener);
+  }
+
+  @AnyThread
   public void subscribeToChatUpdates (long chatId, ChatListener listener) {
     specificChatListeners.add(chatId, listener);
   }

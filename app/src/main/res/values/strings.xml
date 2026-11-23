@@ -1504,6 +1504,15 @@
   <string name="ActionPinnedRound">%1$s pinned a **video message**</string>
   <string name="ActionPinnedVoice">%1$s pinned a **voice message**</string>
   <string name="ActionPinnedStory">%1$s pinned a **story**</string>
+  <string name="Stories">Stories</string>
+  <string name="StoryShared">Story</string>
+  <string name="StoryMentionedYou">%1$s mentioned you in a story</string>
+  <string name="StoryExpired">This story is no longer available</string>
+  <string name="StoryUnsupported">This story can\'t be shown in this app</string>
+  <string name="StoryReply">Reply to story</string>
+  <string name="StoryReplyPrivately">Reply privately…</string>
+  <string name="StoryReplySent">Reply sent</string>
+  <string name="MyStory">My story</string>
   <string name="ActionPinnedContact">%1$s pinned a **contact**</string>
   <string name="UnknownTrack">Unknown Track</string>
   <string name="AudioUnknownArtist">Unknown Artist</string>

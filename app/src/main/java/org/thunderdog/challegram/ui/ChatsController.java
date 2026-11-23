@@ -83,6 +83,8 @@ import org.thunderdog.challegram.telegram.MessageEditListener;
 import org.thunderdog.challegram.telegram.MessageListener;
 import org.thunderdog.challegram.telegram.NotificationSettingsListener;
 import org.thunderdog.challegram.telegram.TGLegacyManager;
+import org.thunderdog.challegram.telegram.SortedList;
+import org.thunderdog.challegram.telegram.StoryList;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccentColor;
 import org.thunderdog.challegram.telegram.TdlibCache;
@@ -287,7 +289,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
             if (adapterPosition != RecyclerView.NO_POSITION) {
               TGChat nextChat = context.adapter.getChatByItemPosition(adapterPosition + 1);
               boolean needSplit = nextChat != null && (chat.isArchive() != nextChat.isArchive() || chat.isPinnedOrSpecial() != nextChat.isPinnedOrSpecial());
-              boolean needShadowTop = adapterPosition > 0 && context.adapter.getItemViewType(adapterPosition - 1) == ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS;
+              boolean needShadowTop = adapterPosition > 0 && (context.adapter.getItemViewType(adapterPosition - 1) == ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS || context.adapter.getItemViewType(adapterPosition - 1) == ChatsAdapter.VIEW_TYPE_STORIES);
 
               if (needShadowTop) {
                 int top = view.getTop() + offsetTop;
@@ -346,7 +348,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
               c.drawRect(separatorLeft, separatorTop, right, separatorTop + separatorHeight, Paints.fillingPaint(separatorColor));
             }
           }
-        } else if (viewType == ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS) {
+        } else if (viewType == ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS || viewType == ChatsAdapter.VIEW_TYPE_STORIES) {
           offsetTop = (int) view.getTranslationY();
           right = view.getWidth();
           c.drawRect(view.getX(), view.getY(), view.getX() + view.getWidth(), view.getY() + view.getHeight(), Paints.fillingPaint(Theme.backgroundColor()));
@@ -726,6 +728,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
         archiveList.subscribeToUpdates(archiveListListener);
         archiveList.loadAtLeast(null, 3, null);
         tdlib.settings().addUserPreferenceChangeListener(this);
+        initStories();
       }
     }
 
@@ -804,6 +807,58 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   }
 
   private boolean hideArchive, archiveCollapsed;
+
+  // Stories row
+
+  private @Nullable StoryList storyList;
+  private @Nullable SortedList.ListListener<TdApi.ChatActiveStories> storyListListener;
+  private volatile int storiesContextId;
+
+  private boolean needStoriesRow () {
+    // Pull-to-reveal archive relies on the archive being the first item, so the row is hidden in that mode
+    return storyList != null && !hideArchive && !isDestroyed();
+  }
+
+  private void initStories () {
+    if (storyList != null) {
+      return;
+    }
+    storyList = tdlib.getStoryList(new TdApi.StoryListMain());
+    storyListListener = new SortedList.ListListener<TdApi.ChatActiveStories>() {
+      @Override
+      public void onListChanged (SortedList<TdApi.ChatActiveStories> list) {
+        list.getList(null, ChatsController.this::displayStories);
+      }
+    };
+    storyList.initializeList(null, storyListListener, this::displayStories, 20, null);
+  }
+
+  private void reloadStories () {
+    if (storyList != null) {
+      storyList.getList(null, this::displayStories);
+    }
+  }
+
+  private void displayStories (List<TdApi.ChatActiveStories> list) {
+    final TdApi.ChatActiveStories[] stories = list.toArray(new TdApi.ChatActiveStories[0]);
+    final int contextId = ++storiesContextId;
+    runOnUiThreadOptional(() -> {
+      if (contextId == storiesContextId && adapter != null) {
+        adapter.setStories(needStoriesRow() ? stories : null);
+      }
+    });
+  }
+
+  private void destroyStories () {
+    final StoryList list = storyList;
+    final SortedList.ListListener<TdApi.ChatActiveStories> listener = storyListListener;
+    if (list != null && listener != null) {
+      // initializeList() adds the listener on the TDLib thread, so remove it there as well to keep the order
+      tdlib.runOnTdlibThread(() -> list.removeListener(listener));
+    }
+    storyListListener = null;
+    storiesContextId++;
+  }
   private TdlibChatList archiveList;
   private ChatListListener archiveListListener;
 
@@ -841,6 +896,11 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
       this.hideArchive = hide;
       if (chatsView == null) {
         return;
+      }
+      if (hide) {
+        adapter.setStories(null);
+      } else {
+        reloadStories();
       }
       adapter.notifyLastItemChanged();
       if (hide) {
@@ -935,7 +995,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   }
 
   public int getLiveLocationPosition () {
-    if (adapter.hasSuggestedChats()) {
+    if (adapter.hasSuggestedChats() || adapter.hasStories()) {
       return 0;
     }
     if (adapter.hasChats()) {
@@ -1067,6 +1127,9 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
       if (adapter.hasSuggestedChats()) {
         totalScrollBy += ChatsViewHolder.measureHeightForType(ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS);
       }
+      if (adapter.hasStories()) {
+        totalScrollBy += ChatsViewHolder.measureHeightForType(ChatsAdapter.VIEW_TYPE_STORIES);
+      }
 
       View firstView = manager.findViewByPosition(firstVisiblePosition);
       if (firstView != null) {
@@ -1111,6 +1174,9 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
 
     if (adapter.hasSuggestedChats()) {
       totalScrollBy += ChatsViewHolder.measureHeightForType(ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS);
+    }
+    if (adapter.hasStories()) {
+      totalScrollBy += ChatsViewHolder.measureHeightForType(ChatsAdapter.VIEW_TYPE_STORIES);
     }
 
     return totalScrollBy;
@@ -2723,6 +2789,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
     if (archiveList != null) {
       archiveList.unsubscribeFromUpdates(archiveListListener);
     }
+    destroyStories();
     if (adapter != null) {
       List<TGChat> chats = adapter.getChats();
       for (TGChat chat : chats) {

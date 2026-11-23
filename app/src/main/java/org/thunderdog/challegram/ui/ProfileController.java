@@ -72,6 +72,8 @@ import org.thunderdog.challegram.mediaview.MediaViewController;
 import org.thunderdog.challegram.mediaview.data.MediaStack;
 import org.thunderdog.challegram.navigation.ActivityResultHandler;
 import org.thunderdog.challegram.navigation.BackHeaderButton;
+import org.thunderdog.challegram.component.dialogs.StoriesBarView;
+import org.thunderdog.challegram.mediaview.StoryViewController;
 import org.thunderdog.challegram.navigation.ComplexHeaderView;
 import org.thunderdog.challegram.navigation.ComplexRecyclerView;
 import org.thunderdog.challegram.navigation.CounterHeaderView;
@@ -613,6 +615,11 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       }
     }
 
+    if (hasActiveStories()) {
+      ids.append(R.id.btn_openStories);
+      strings.append(R.string.Stories);
+    }
+
     if (mode == Mode.USER && user.id != myUserId && !TD.isBot(user)) {
       ids.append(R.id.btn_newSecretChat);
       strings.append(R.string.StartEncryptedChat);
@@ -668,6 +675,11 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     IntList ids = new IntList(4);
     StringList strings = new StringList(4);
 
+    if (hasActiveStories()) {
+      ids.append(R.id.btn_openStories);
+      strings.append(R.string.Stories);
+    }
+
     if (canAddAnyKindOfMembers()) {
       ids.append(R.id.more_btn_addMember);
       strings.append(Lang.getString(R.string.AddMember));
@@ -710,6 +722,10 @@ public class ProfileController extends ViewController<ProfileController.Args> im
 
   @Override
   public void onMoreItemPressed (int id) {
+    if (id == R.id.btn_openStories) {
+      openStories();
+      return;
+    }
     if (tdlib.ui().processLeaveButton(this, null, getChatId(), id, null)) {
       return;
     }
@@ -1598,6 +1614,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       headerCell.setAllowEmptyClick();
       headerCell.initWithController(this, false);
       headerCell.setPhotoOpenCallback(this);
+      loadActiveStories();
 
       baseRecyclerView = new ComplexRecyclerView(context, this) {
         @Override
@@ -4682,10 +4699,67 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     avatarPickerManager.showMenuForChat(chat, headerCell, !isEditing());
   }
 
+  // Stories
+
+  private @Nullable TdApi.ChatActiveStories activeStories;
+
+  private void loadActiveStories () {
+    if (chat == null || isEditing()) {
+      return;
+    }
+    final long chatId = chat.id;
+    tdlib.send(new TdApi.GetChatActiveStories(chatId), (result, error) -> {
+      if (result != null) {
+        runOnUiThreadOptional(() -> {
+          if (chat != null && chat.id == chatId) {
+            setActiveStories(result);
+          }
+        });
+      }
+    });
+  }
+
+  private void setActiveStories (@Nullable TdApi.ChatActiveStories activeStories) {
+    this.activeStories = activeStories;
+    if (headerCell != null) {
+      int state;
+      if (!hasActiveStories()) {
+        state = ComplexHeaderView.STORY_RING_NONE;
+      } else if (StoriesBarView.hasUnreadStories(activeStories)) {
+        state = ComplexHeaderView.STORY_RING_UNREAD;
+      } else {
+        state = ComplexHeaderView.STORY_RING_READ;
+      }
+      headerCell.setStoryRingState(state);
+    }
+  }
+
+  private boolean hasActiveStories () {
+    return activeStories != null && activeStories.stories != null && activeStories.stories.length > 0 && !isEditing();
+  }
+
+  private void openStories () {
+    if (chat != null && hasActiveStories()) {
+      StoryViewController.openChatStories(this, chat.id);
+    }
+  }
+
+  @Override
+  public void onChatActiveStoriesChanged (@NonNull TdApi.ChatActiveStories activeStories) {
+    runOnUiThreadOptional(() -> {
+      if (chat != null && chat.id == activeStories.chatId) {
+        setActiveStories(activeStories);
+      }
+    });
+  }
+
   @Override
   public void performComplexPhotoOpen () {
     if (tdlib.canChangeInfo(chat) || tdlib.canEditBotChat(chat.id)) {
+      // Keep avatar tap as "change photo" for editable chats; stories stay reachable via the menu
       changeProfilePhoto();
+    } else if (hasActiveStories()) {
+      openStories();
     } else {
       openPhoto();
     }

@@ -705,7 +705,65 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
   // private boolean isPrivate;
 
   private void setStory (TdApi.Story story, boolean forceRequestImage, boolean forceLocal) {
-    // TODO
+    TdApi.Minithumbnail miniThumbnail = null;
+    TdApi.File file = null;
+    ContentPreview.Emoji emoji = null;
+    switch (story.content.getConstructor()) {
+      case TdApi.StoryContentPhoto.CONSTRUCTOR: {
+        TdApi.Photo photo = ((TdApi.StoryContentPhoto) story.content).photo;
+        miniThumbnail = photo.minithumbnail;
+        TdApi.PhotoSize smallest = Td.findSmallest(photo);
+        file = smallest != null ? smallest.photo : null;
+        emoji = ContentPreview.EMOJI_PHOTO;
+        break;
+      }
+      case TdApi.StoryContentVideo.CONSTRUCTOR: {
+        TdApi.StoryVideo video = ((TdApi.StoryContentVideo) story.content).video;
+        miniThumbnail = video.minithumbnail;
+        if (video.thumbnail != null && video.thumbnail.format.getConstructor() == TdApi.ThumbnailFormatJpeg.CONSTRUCTOR) {
+          file = video.thumbnail.file;
+        }
+        emoji = ContentPreview.EMOJI_VIDEO;
+        break;
+      }
+      default:
+        break;
+    }
+
+    ImageFile image = null;
+    if (file != null && !TD.isFileEmpty(file)) {
+      image = new ImageFile(tdlib, file);
+      image.setDecodeSquare(true);
+      image.setSize(height);
+      image.setNoBlur();
+      image.setScaleType(ImageFile.CENTER_CROP);
+    }
+    ImageFile preview = null;
+    if (miniThumbnail != null) {
+      preview = new ImageFileLocal(miniThumbnail);
+      preview.setScaleType(ImageFile.CENTER_CROP);
+      preview.setDecodeSquare(true);
+    }
+    MediaPreview mediaPreview = image != null || preview != null ? new MediaPreview(preview, image, null, false, false) : null;
+    ContentPreview contentPreview = new ContentPreview(emoji, R.string.StoryShared, Td.isEmpty(story.caption) ? null : story.caption);
+
+    this.currentMessage = null;
+    this.sender = tdlib.sender(story.posterChatId);
+    this.senderName = null;
+    this.accentColor = tdlib.senderAccentColor(sender);
+    String title = computeTitleText(null);
+    if (parent != null) {
+      UI.execute(parent::onReplyLoaded);
+    }
+    if (Thread.currentThread() == Background.instance().thread() || forceLocal) {
+      this.content = new ContentPreview(translatedText, contentPreview);
+      setTitleImpl(title);
+      this.mediaPreview = mediaPreview;
+      buildLayout();
+      invalidate(forceRequestImage || !isMessageComponent() || mediaPreview != null);
+    } else {
+      setContent(title, contentPreview, mediaPreview, false);
+    }
   }
 
   private String computeTitleText (String defaultText) {

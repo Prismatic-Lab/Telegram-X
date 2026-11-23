@@ -76,6 +76,7 @@ import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.loader.gif.GifFile;
 import org.thunderdog.challegram.loader.gif.GifReceiver;
 import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
+import org.thunderdog.challegram.mediaview.StoryViewController;
 import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.navigation.HeaderView;
 import org.thunderdog.challegram.navigation.ReactionsOverlayView;
@@ -566,7 +567,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
     ThreadInfo messageThread = messagesController().getMessageThread();
     if (msg.replyTo != null && (messageThread == null || !messageThread.isRootMessage(msg.replyTo)) && !(msg.content != null && msg.content.getConstructor() == TdApi.MessageGiveawayWinners.CONSTRUCTOR)) {
-      if (msg.replyTo.getConstructor() == TdApi.MessageReplyToMessage.CONSTRUCTOR) { // TODO: support replies to stories
+      if (msg.replyTo.getConstructor() == TdApi.MessageReplyToMessage.CONSTRUCTOR || msg.replyTo.getConstructor() == TdApi.MessageReplyToStory.CONSTRUCTOR) {
         loadReply();
       }
     }
@@ -2987,7 +2988,14 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           break;
         }
         case CLICK_TYPE_REPLY: {
-          if (msg.replyTo != null && msg.replyTo.getConstructor() == TdApi.MessageReplyToMessage.CONSTRUCTOR) {
+          if (msg.replyTo != null && msg.replyTo.getConstructor() == TdApi.MessageReplyToStory.CONSTRUCTOR) {
+            TdApi.MessageReplyToStory replyToStory = (TdApi.MessageReplyToStory) msg.replyTo;
+            if (replyData != null && replyData.getError() != null) {
+              buildContentHint(view, getReplyLocationProvider(), false).show(tdlib, Lang.getString(R.string.StoryExpired));
+            } else {
+              StoryViewController.openStory(controller(), replyToStory.storyPosterChatId, replyToStory.storyId);
+            }
+          } else if (msg.replyTo != null && msg.replyTo.getConstructor() == TdApi.MessageReplyToMessage.CONSTRUCTOR) {
             TdApi.MessageReplyToMessage replyToMessage = (TdApi.MessageReplyToMessage) msg.replyTo;
             if (replyData != null && replyData.getError() != null) {
               buildContentHint(view, getReplyLocationProvider(), false).show(tdlib, replyData.toErrorText());
@@ -8425,6 +8433,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         case TdApi.MessageChecklist.CONSTRUCTOR: {
           return new TGMessageChecklist(context, msg, nonNull((TdApi.MessageChecklist) content).list);
         }
+        case TdApi.MessageStory.CONSTRUCTOR: {
+          return new TGMessageStory(context, msg, nonNull((TdApi.MessageStory) content));
+        }
         case TdApi.MessageLocation.CONSTRUCTOR: {
           return new TGMessageLocation(context, msg, (TdApi.MessageLocation) content);
         }
@@ -8619,7 +8630,6 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         case TdApi.MessageRichMessage.CONSTRUCTOR:
         case TdApi.MessageInvoice.CONSTRUCTOR:
         case TdApi.MessagePassportDataSent.CONSTRUCTOR:
-        case TdApi.MessageStory.CONSTRUCTOR:
         case TdApi.MessageChatSetBackground.CONSTRUCTOR:
         case TdApi.MessageSuggestProfilePhoto.CONSTRUCTOR:
         case TdApi.MessageSuggestBirthdate.CONSTRUCTOR:

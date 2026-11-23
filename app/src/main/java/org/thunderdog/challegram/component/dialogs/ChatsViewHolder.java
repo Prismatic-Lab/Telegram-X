@@ -58,6 +58,8 @@ public class ChatsViewHolder extends RecyclerView.ViewHolder {
         return SettingHolder.measureHeightForType(ListItem.TYPE_LIST_INFO_VIEW);
       case ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS:
         return Screen.dp(SuggestedChatsView.DEFAULT_HEIGHT_DP);
+      case ChatsAdapter.VIEW_TYPE_STORIES:
+        return Screen.dp(StoriesBarView.DEFAULT_HEIGHT_DP);
       default:
         throw new IllegalArgumentException("viewType = " + viewType);
     }
@@ -127,6 +129,16 @@ public class ChatsViewHolder extends RecyclerView.ViewHolder {
         }
         textView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         return new ChatsViewHolder(textView);
+      }
+      case ChatsAdapter.VIEW_TYPE_STORIES: {
+        StoriesBarView view = new StoriesBarView(context, tdlib);
+        view.setId(R.id.btn_chatsStories);
+        view.setParentController(parentController);
+        view.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(StoriesBarView.DEFAULT_HEIGHT_DP)));
+        if (themeProvider != null) {
+          themeProvider.addThemeInvalidateListener(view);
+        }
+        return new ChatsViewHolder(view);
       }
       case ChatsAdapter.VIEW_TYPE_SUGGESTED_CHATS: {
         SuggestedChatsView view = new SuggestedChatsView(context, tdlib);

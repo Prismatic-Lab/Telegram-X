@@ -224,6 +224,14 @@ public abstract class SortedList<T extends TdApi.Object> implements Comparator<T
     loadAtLeast(filter, initialChunkSize, onLoadInitialChunk);
   }
 
+  public void addListener (@NonNull ListListener<T> listener) {
+    listeners.add(listener);
+  }
+
+  public void removeListener (@NonNull ListListener<T> listener) {
+    listeners.remove(listener);
+  }
+
   public void loadAtLeast (@Nullable Filter<T> filter, int minimumCount, @Nullable Runnable after) {
     loadAtLeast(filter, minimumCount, minimumCount, after);
   }

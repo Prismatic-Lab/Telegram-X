@@ -90,13 +90,47 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
     boolean notifyRemoved = hasSuggestedChats() && chatIds.length == 0;
     boolean notifyChanged = hasSuggestedChats() && chatIds.length > 0 && !Arrays.equals(suggestedChatIds, chatIds);
     this.suggestedChatIds = chatIds;
+    final int position = getSuggestedChatsItemPosition();
     if (notifyInserted) {
-      notifyItemInserted(0);
+      notifyItemInserted(position);
     } else if (notifyRemoved) {
-      notifyItemRemoved(0);
+      notifyItemRemoved(position);
     } else if (notifyChanged) {
-      notifyItemChanged(0);
+      notifyItemChanged(position);
     }
+  }
+
+  // Stories
+
+  private static final TdApi.ChatActiveStories[] EMPTY_STORIES = new TdApi.ChatActiveStories[0];
+  private TdApi.ChatActiveStories[] stories = EMPTY_STORIES;
+
+  public void setStories (@Nullable TdApi.ChatActiveStories[] stories) {
+    stories = stories != null ? stories : EMPTY_STORIES;
+    boolean hadStories = hasStories();
+    boolean hasStories = stories.length > 0;
+    this.stories = stories;
+    if (!hadStories && hasStories) {
+      notifyItemInserted(STORIES_ITEM_POSITION);
+    } else if (hadStories && !hasStories) {
+      notifyItemRemoved(STORIES_ITEM_POSITION);
+    } else if (hasStories) {
+      notifyItemChanged(STORIES_ITEM_POSITION);
+    }
+  }
+
+  public boolean hasStories () {
+    return stories.length > 0;
+  }
+
+  private static final int STORIES_ITEM_POSITION = 0;
+
+  private int getSuggestedChatsItemPosition () {
+    return hasStories() ? 1 : 0;
+  }
+
+  public int getHeaderItemCount () {
+    return (hasStories() ? 1 : 0) + (hasSuggestedChats() ? 1 : 0);
   }
 
   public long[] getSuggestedChatIds () {
@@ -177,6 +211,8 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
       ((ChatView) holder.itemView).setChat(null);
     } else if (holder.getItemViewType() == VIEW_TYPE_SUGGESTED_CHATS) {
       ((SuggestedChatsView) holder.itemView).setChatIds(ArrayUtils.EMPTY_LONGS, false);
+    } else if (holder.getItemViewType() == VIEW_TYPE_STORIES) {
+      ((StoriesBarView) holder.itemView).setStories(EMPTY_STORIES);
     }
   }
 
@@ -208,6 +244,10 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
         holder.setChatIds(suggestedChatIds);
         break;
       }
+      case VIEW_TYPE_STORIES: {
+        ((StoriesBarView) holder.itemView).setStories(stories);
+        break;
+      }
     }
   }
 
@@ -224,6 +264,10 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
       }
       case VIEW_TYPE_SUGGESTED_CHATS: {
         ((SuggestedChatsView) holder.itemView).attach();
+        break;
+      }
+      case VIEW_TYPE_STORIES: {
+        ((StoriesBarView) holder.itemView).attach();
         break;
       }
     }
@@ -244,15 +288,16 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
         ((SuggestedChatsView) holder.itemView).detach();
         break;
       }
+      case VIEW_TYPE_STORIES: {
+        ((StoriesBarView) holder.itemView).detach();
+        break;
+      }
     }
   }
 
   @Override
   public int getItemCount () {
-    int itemCount = 0;
-    if (hasSuggestedChats()) {
-      itemCount++;
-    }
+    int itemCount = getHeaderItemCount();
     if (hasChats()) {
       itemCount += chats.size() + 1;
     }
@@ -271,7 +316,7 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
     return suggestedChatIds.length > 0;
   }
 
-  @IntDef({VIEW_TYPE_CHAT, VIEW_TYPE_INFO, VIEW_TYPE_EMPTY, VIEW_TYPE_SUGGESTED_CHATS})
+  @IntDef({VIEW_TYPE_CHAT, VIEW_TYPE_INFO, VIEW_TYPE_EMPTY, VIEW_TYPE_SUGGESTED_CHATS, VIEW_TYPE_STORIES})
   public @interface ViewType {
   }
 
@@ -279,10 +324,14 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
   public static final int VIEW_TYPE_INFO = 1;
   public static final int VIEW_TYPE_EMPTY = 2;
   public static final int VIEW_TYPE_SUGGESTED_CHATS = 3;
+  public static final int VIEW_TYPE_STORIES = 4;
 
   @Override
   public int getItemViewType (int position) {
-    if (hasSuggestedChats() && position == 0) {
+    if (hasStories() && position == STORIES_ITEM_POSITION) {
+      return VIEW_TYPE_STORIES;
+    }
+    if (hasSuggestedChats() && position == getSuggestedChatsItemPosition()) {
       return VIEW_TYPE_SUGGESTED_CHATS;
     }
     if (hasChats()) {
@@ -328,14 +377,14 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
     if (chatIndex == -1) {
       return -1;
     }
-    return hasSuggestedChats() ? chatIndex + 1 : chatIndex;
+    return chatIndex + getHeaderItemCount();
   }
 
   public int getChatIndexByItemPosition (int itemPosition) {
     if (itemPosition == RecyclerView.NO_POSITION) {
       return -1;
     }
-    return hasSuggestedChats() ? itemPosition - 1 : itemPosition;
+    return itemPosition - getHeaderItemCount();
   }
 
   public int findChatItemPosition (long chatId) {

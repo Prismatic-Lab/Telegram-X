@@ -1639,7 +1639,6 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   private static boolean isSupported (@NonNull TdApi.InternalLinkType internalLinkType) {
     // Matches TdlibUi.openInternalLinkType
     switch (internalLinkType.getConstructor()) {
-      case TdApi.InternalLinkTypeStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeLiveStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeStoryAlbum.CONSTRUCTOR:
 

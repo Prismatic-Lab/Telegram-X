@@ -190,6 +190,7 @@
   <item type="id" name="controller_fontSize" />
   <item type="id" name="controller_playback" />
   <item type="id" name="controller_mediaView" />
+  <item type="id" name="controller_storyView" />
   <item type="id" name="controller_newChannel" />
   <item type="id" name="controller_newChannel_link" />
   <item type="id" name="controller_newGroup" />
@@ -1424,6 +1425,8 @@
   <item type="id" name="btn_avatarsInReactionsNever" />
   <item type="id" name="btn_emojiPackInfoButton" />
   <item type="id" name="btn_chatsSuggestion" />
+  <item type="id" name="btn_chatsStories" />
+  <item type="id" name="btn_openStories" />
 
   <item type="id" name="controller_stickersAndEmoji" />
   <item type="id" name="controller_emojiLayoutStickers" />

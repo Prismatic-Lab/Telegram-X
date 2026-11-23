@@ -67,6 +67,7 @@ import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.data.TGSwitchInline;
 import org.thunderdog.challegram.data.ThreadInfo;
 import org.thunderdog.challegram.mediaview.MediaViewController;
+import org.thunderdog.challegram.mediaview.StoryViewController;
 import org.thunderdog.challegram.navigation.HeaderView;
 import org.thunderdog.challegram.navigation.NavigationController;
 import org.thunderdog.challegram.navigation.NavigationStack;
@@ -4099,7 +4100,21 @@ public class TdlibUi extends Handler {
         break;
       }
 
-      case TdApi.InternalLinkTypeStory.CONSTRUCTOR:
+      case TdApi.InternalLinkTypeStory.CONSTRUCTOR: {
+        TdApi.InternalLinkTypeStory storyLink = (TdApi.InternalLinkTypeStory) linkType;
+        tdlib.send(new TdApi.SearchPublicChat(storyLink.storyPosterUsername), (chat, error) -> post(() -> {
+          if (error != null) {
+            UI.showError(error);
+            return;
+          }
+          ViewController<?> c = context.context().navigation().getCurrentStackItem();
+          if (c != null && !c.isDestroyed()) {
+            StoryViewController.openStory(c, chat.id, storyLink.storyId);
+          }
+        }));
+        break;
+      }
+
       case TdApi.InternalLinkTypeLiveStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeStoryAlbum.CONSTRUCTOR:
 

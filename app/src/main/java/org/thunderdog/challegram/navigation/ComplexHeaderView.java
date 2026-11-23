@@ -429,6 +429,41 @@ public class ComplexHeaderView extends BaseView implements RtlCheckListener, Sti
     }
   }
 
+  public static final int STORY_RING_NONE = 0;
+  public static final int STORY_RING_READ = 1;
+  public static final int STORY_RING_UNREAD = 2;
+
+  private int storyRingState = STORY_RING_NONE;
+  private Paint storyRingPaint;
+
+  public void setStoryRingState (int storyRingState) {
+    if (this.storyRingState != storyRingState) {
+      this.storyRingState = storyRingState;
+      invalidate();
+    }
+  }
+
+  public boolean hasStoryRing () {
+    return storyRingState != STORY_RING_NONE;
+  }
+
+  private void drawStoryRing (Canvas c, float avatarExpandFactor) {
+    if (storyRingState == STORY_RING_NONE || avatarExpandFactor >= 1f) {
+      return;
+    }
+    if (storyRingPaint == null) {
+      storyRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      storyRingPaint.setStyle(Paint.Style.STROKE);
+    }
+    boolean unread = storyRingState == STORY_RING_UNREAD;
+    float strokeWidth = unread ? Screen.dp(2f) : Screen.dp(1.5f);
+    int color = unread ? Theme.getColor(ColorId.textNeutral) : Theme.getColor(ColorId.iconLight);
+    storyRingPaint.setStrokeWidth(strokeWidth);
+    storyRingPaint.setColor(ColorUtils.alphaColor(1f - avatarExpandFactor, color));
+    float radius = receiver.getDisplayRadius() + Screen.dp(2.5f) + strokeWidth / 2f;
+    c.drawCircle(receiver.centerX(), receiver.centerY(), radius, storyRingPaint);
+  }
+
   public void setShowLock (boolean showLock) {
     if (setFlags(BitwiseUtils.setFlag(flags, FLAG_SHOW_LOCK, showLock))) {
       layoutTitle();
@@ -876,6 +911,7 @@ public class ComplexHeaderView extends BaseView implements RtlCheckListener, Sti
         receiver.drawPlaceholderRounded(c, receiver.getDisplayRadius(), Theme.headerPlaceholderColor());
       }
       receiver.draw(c);
+      drawStoryRing(c, avatarExpandFactor);
       if (avatarExpandFactor > 0f && receiver.getRequestedPlaceholder() == null) {
         getTopShadow().setAlpha((int) (255f * .8f * avatarExpandFactor));
         getTopShadow().draw(c);
