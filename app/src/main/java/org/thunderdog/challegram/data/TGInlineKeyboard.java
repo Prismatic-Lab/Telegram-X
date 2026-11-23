@@ -1147,6 +1147,15 @@ public class TGInlineKeyboard {
         return;
       }
 
+      if (parent.isPendingStreamedMessage()) {
+        makeActive();
+        showProgressDelayed();
+        parent.stopPendingMessage(() ->
+          parent.executeOnUiThreadOptional(this::makeInactive)
+        );
+        return;
+      }
+
       switch (type.getConstructor()) {
         case TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR:
         case TdApi.InlineKeyboardButtonTypeCopyText.CONSTRUCTOR:

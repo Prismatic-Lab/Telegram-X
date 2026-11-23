@@ -84,6 +84,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -622,6 +623,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     }
     loader.reuse();
     resetSponsoredContext();
+    resetPendingStreamMessage();
     messageViewer = null;
     adapter.clear(true);
     clearHeaderMessage();
@@ -2160,7 +2162,12 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     if (!message.isOutgoing()) {
       controller.checkSwitchPm(message.getMessage());
     }
+    final TGMessage pendingStreamMessage = takePendingStreamMessageForNewMessage(message);
     if (!loader.canLoadBottom()) {
+      if (pendingStreamMessage != null) {
+        // Own message sent while the bot is still writing: keep the bot's bubble below it
+        UI.post(() -> restorePendingStreamMessage(pendingStreamMessage));
+      }
       boolean atBottom = manager.findFirstVisibleItemPosition() == 0;
       TGMessage bottomMessage = adapter.getBottomMessage();
       if (bottomMessage != null && bottomMessage.combineWith(message.getMessage(), true)) {
@@ -2205,6 +2212,236 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     } else if (message.isSending()) {
       loadFromStart();
     }
+  }
+
+  // Pending (streamed) bot messages
+
+  private @Nullable TGMessage pendingStreamMessage;
+  private @Nullable Runnable pendingStreamTimeout;
+
+  @Override
+  public void onPendingMessageUpdated (TdApi.UpdatePendingMessage update) {
+    tdlib.ui().post(() -> {
+      if (loader.getChatId() == update.chatId) {
+        updatePendingStreamMessage(update);
+      }
+    });
+  }
+
+  @Override
+  public void onMessageDraftStopped (long chatId, int forumTopicId, long draftId) {
+    onPendingMessageStopped(chatId, forumTopicId, draftId);
+  }
+
+  /**
+   * Called when generation of a bot reply was stopped, by this or another session.
+   */
+  public void onPendingMessageStopped (long chatId, int forumTopicId, long draftId) {
+    tdlib.ui().post(() -> {
+      if (loader.getChatId() != chatId) {
+        return;
+      }
+      int index = indexOfPendingStreamMessage();
+      if (index == -1) {
+        return;
+      }
+      TGMessage.PendingDraft draft = pendingStreamMessage.getPendingDraft();
+      if (draft == null || !draft.isSameDraft(chatId, forumTopicId, draftId)) {
+        return;
+      }
+      if (draft.keepOnStop) {
+        if (draft.canStop) {
+          // Keep the text, hide the Stop button
+          replacePendingStreamMessage(index, draft.withCanStop(false), pendingStreamMessage.getMessage().content);
+        }
+      } else {
+        removePendingStreamMessage();
+      }
+    });
+  }
+
+  private int indexOfPendingStreamMessage () {
+    if (pendingStreamMessage == null) {
+      return -1;
+    }
+    ArrayList<TGMessage> items = adapter.getItems();
+    if (items != null) {
+      for (int index = 0; index < items.size(); index++) {
+        if (items.get(index) == pendingStreamMessage) {
+          return index;
+        }
+      }
+    }
+    // The adapter was reset (e.g. by a jump to another message)
+    pendingStreamMessage = null;
+    cancelPendingStreamTimeout();
+    return -1;
+  }
+
+  private static boolean isSupportedPendingContent (@Nullable TdApi.MessageContent content) {
+    if (content == null) {
+      return false;
+    }
+    switch (content.getConstructor()) {
+      case TdApi.MessageText.CONSTRUCTOR:
+      case TdApi.MessageRichMessage.CONSTRUCTOR:
+        return true;
+    }
+    return false;
+  }
+
+  private boolean canShowPendingStreamMessage (TGMessage.PendingDraft draft) {
+    if (inSpecialMode() || areScheduled() || loader.canLoadBottom()) {
+      return false;
+    }
+    return Td.matchesTopic(draft.toMessageTopic(), loader.getMessageTopicId());
+  }
+
+  private void updatePendingStreamMessage (TdApi.UpdatePendingMessage update) {
+    final TGMessage.PendingDraft draft = new TGMessage.PendingDraft(update);
+    if (!isSupportedPendingContent(update.content) || !canShowPendingStreamMessage(draft)) {
+      return;
+    }
+    int index = indexOfPendingStreamMessage();
+    if (index != -1) {
+      TGMessage.PendingDraft currentDraft = pendingStreamMessage.getPendingDraft();
+      TdApi.MessageContent currentContent = pendingStreamMessage.getMessage().content;
+      boolean sameBubble = currentDraft != null &&
+        currentDraft.isSameDraft(draft.chatId, draft.forumTopicId, draft.draftId) &&
+        currentDraft.canStop == draft.canStop &&
+        currentDraft.keepOnStop == draft.keepOnStop &&
+        currentContent != null && currentContent.getConstructor() == update.content.getConstructor();
+      boolean replaced = false;
+      if (sameBubble) {
+        // Same draft: grow the text in place
+        switch (pendingStreamMessage.replaceMessageContent(draft.chatId, TGMessage.PENDING_MESSAGE_ID, update.content)) {
+          case TGMessage.MESSAGE_INVALIDATED: {
+            invalidateViewAt(index);
+            replaced = true;
+            break;
+          }
+          case TGMessage.MESSAGE_CHANGED: {
+            adapter.notifyItemChanged(index);
+            replaced = true;
+            break;
+          }
+          case TGMessage.MESSAGE_NOT_CHANGED: {
+            replaced = true;
+            break;
+          }
+          case TGMessage.MESSAGE_REPLACE_REQUIRED: {
+            break;
+          }
+        }
+      }
+      if (!replaced) {
+        // Another draft, or the Stop button changed: rebuild the bubble
+        replacePendingStreamMessage(index, draft, update.content);
+      }
+    } else {
+      TGMessage message = TGMessage.valueOfPendingMessage(this, draft, update.content, tdlib.chat(draft.chatId), loader.getMessageThread());
+      pendingStreamMessage = message;
+      addPendingStreamMessage(message);
+    }
+    schedulePendingStreamTimeout();
+  }
+
+  private void addPendingStreamMessage (TGMessage message) {
+    boolean atBottom = manager.findFirstVisibleItemPosition() == 0;
+    if (atBottom) {
+      boolean hasScrolled = adapter.addMessage(message, false, true);
+      if (!hasScrolled) {
+        scrollToBottom(false);
+      }
+    } else {
+      adapter.addMessage(message, false, false);
+    }
+  }
+
+  private void replacePendingStreamMessage (int index, TGMessage.PendingDraft draft, TdApi.MessageContent content) {
+    TGMessage replacement = TGMessage.valueOfPendingMessage(this, draft, content, tdlib.chat(draft.chatId), loader.getMessageThread());
+    pendingStreamMessage = replacement;
+    adapter.replaceItem(index, replacement);
+  }
+
+  private void removePendingStreamMessage () {
+    int index = indexOfPendingStreamMessage();
+    pendingStreamMessage = null;
+    cancelPendingStreamTimeout();
+    if (index != -1) {
+      adapter.removeItem(index);
+    }
+  }
+
+  /**
+   * TDLib asks to drop the pending message when any incoming message arrives in its thread.
+   * An outgoing message doesn't end the reply, so the bubble is returned to the caller to be put back below it.
+   */
+  @Nullable
+  private TGMessage takePendingStreamMessageForNewMessage (TGMessage message) {
+    int index = indexOfPendingStreamMessage();
+    if (index == -1) {
+      return null;
+    }
+    TGMessage pendingMessage = pendingStreamMessage;
+    TGMessage.PendingDraft draft = pendingMessage.getPendingDraft();
+    if (draft == null || message.getChatId() != draft.chatId) {
+      return null;
+    }
+    boolean sameThread = Td.matchesTopic(message.getMessageTopicId(), draft.toMessageTopic());
+    if (!sameThread) {
+      return null;
+    }
+    boolean keep = message.isOutgoing();
+    pendingStreamMessage = null;
+    adapter.removeItem(index);
+    if (keep) {
+      return pendingMessage.getPendingDraft() != null ? pendingMessage : null;
+    }
+    cancelPendingStreamTimeout();
+    return null;
+  }
+
+  private void restorePendingStreamMessage (TGMessage removedMessage) {
+    TGMessage.PendingDraft draft = removedMessage.getPendingDraft();
+    if (draft == null || pendingStreamMessage != null || loader.getChatId() != draft.chatId || !canShowPendingStreamMessage(draft)) {
+      return;
+    }
+    // removeItem destroyed the old bubble, so it is built again
+    TGMessage message = TGMessage.valueOfPendingMessage(this, draft, removedMessage.getMessage().content, tdlib.chat(draft.chatId), loader.getMessageThread());
+    pendingStreamMessage = message;
+    addPendingStreamMessage(message);
+  }
+
+  private void schedulePendingStreamTimeout () {
+    cancelPendingStreamTimeout();
+    int periodSeconds = tdlib.options().pendingTextMessagePeriod;
+    if (periodSeconds <= 0) {
+      return;
+    }
+    final Runnable timeout = new Runnable() {
+      @Override
+      public void run () {
+        if (pendingStreamTimeout == this) {
+          pendingStreamTimeout = null;
+          removePendingStreamMessage();
+        }
+      }
+    };
+    pendingStreamTimeout = timeout;
+    UI.post(timeout, TimeUnit.SECONDS.toMillis(periodSeconds));
+  }
+
+  private void cancelPendingStreamTimeout () {
+    if (pendingStreamTimeout != null) {
+      UI.cancel(pendingStreamTimeout);
+      pendingStreamTimeout = null;
+    }
+  }
+
+  private void resetPendingStreamMessage () {
+    pendingStreamMessage = null;
+    cancelPendingStreamTimeout();
   }
 
   private int getExtraScrollSpacing () {

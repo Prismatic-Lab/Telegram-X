@@ -32,6 +32,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -42,9 +43,12 @@ import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.charts.LayoutHelper;
 import org.thunderdog.challegram.component.chat.InputView;
 import org.thunderdog.challegram.core.Lang;
+import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TranslationsManager;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.RippleSupport;
+import org.thunderdog.challegram.navigation.ViewController.OptionItem;
+import org.thunderdog.challegram.navigation.ViewController.Options;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
@@ -55,6 +59,7 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
+import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.ui.TranslationControllerV2;
 import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.util.TextSelection;
@@ -238,6 +243,12 @@ public class TextFormattingLayout extends FrameLayout implements TranslationsMan
         continue;
       }
 
+      if (data.id == R.id.btn_aiEditor) {
+        // Works on the selection, or on the whole text when nothing is selected
+        button.setIsEnabled(canUseAiEditor() && !inputView.isEmpty(), animated);
+        continue;
+      }
+
       if (data.id == R.id.btn_link) {
         button.setIsActive(existingSpans != null && existingSpans.length > 0, animated);
         linkButton.setIsMultiple(existingSpans != null && existingSpans.length > 1, animated);
@@ -314,6 +325,8 @@ public class TextFormattingLayout extends FrameLayout implements TranslationsMan
       inputView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL));
     } else if (id == R.id.btn_translate) {
       startTranslate();
+    } else if (id == R.id.btn_aiEditor) {
+      showAiEditorOptions();
     } else if (id == android.R.id.copy || id == android.R.id.cut || id == android.R.id.paste) {
       inputView.onTextContextMenuItem(id);
     } else {
@@ -371,6 +384,171 @@ public class TextFormattingLayout extends FrameLayout implements TranslationsMan
     } else {
       translationsManager.stopTranslation();
     }
+  }
+
+  // AI editor
+
+  private int aiEditorContextId;
+
+  private boolean canUseAiEditor () {
+    // fixTextWithAi and composeTextWithAi must not be used in secret chats
+    return parent != null && !(parent instanceof MessagesController && ((MessagesController) parent).isSecretChat());
+  }
+
+  private static final class AiEditorSource {
+    public final TdApi.FormattedText text;
+    public final String inputText;
+    public final int start, end;
+    public final boolean isSelection;
+
+    public AiEditorSource (TdApi.FormattedText text, String inputText, int start, int end, boolean isSelection) {
+      this.text = text;
+      this.inputText = inputText;
+      this.start = start;
+      this.end = end;
+      this.isSelection = isSelection;
+    }
+  }
+
+  @Nullable
+  private AiEditorSource getAiEditorSource () {
+    final TdApi.FormattedText outputText = inputView.getOutputText(false);
+    if (outputText == null || StringUtils.isEmptyOrBlank(outputText.text)) {
+      return null;
+    }
+    final String inputText = inputView.getText().toString();
+    final TextSelection selection = inputView.getTextSelection();
+    if (selection != null && !selection.isEmpty() && selection.end <= outputText.text.length()) {
+      TdApi.FormattedText text = Td.substring(outputText, selection.start, selection.end);
+      if (!StringUtils.isEmptyOrBlank(text.text)) {
+        return new AiEditorSource(text, inputText, selection.start, selection.end, true);
+      }
+    }
+    return new AiEditorSource(outputText, inputText, 0, inputText.length(), false);
+  }
+
+  private void showAiEditorOptions () {
+    if (!canUseAiEditor()) {
+      return;
+    }
+    final AiEditorSource source = getAiEditorSource();
+    if (source == null) {
+      return;
+    }
+    inputView.hideSelectionCursors();
+    Options options = new Options.Builder()
+      .info(Lang.getString(source.isSelection ? R.string.AiEditorInfoSelection : R.string.AiEditorInfo))
+      .item(new OptionItem.Builder().id(R.id.btn_aiFix).name(R.string.AiEditorFix).icon(R.drawable.baseline_check_24).build())
+      .item(new OptionItem.Builder().id(R.id.btn_aiRewrite).name(R.string.AiEditorRewrite).icon(R.drawable.baseline_create_24).build())
+      .cancelItem()
+      .build();
+    parent.showOptions(options, (optionItemView, id) -> {
+      if (id == R.id.btn_aiFix) {
+        fixTextWithAi(source);
+      } else if (id == R.id.btn_aiRewrite) {
+        showAiEditorStyles(source);
+      }
+      return true;
+    });
+  }
+
+  private void showAiEditorStyles (AiEditorSource source) {
+    final TdApi.TextCompositionStyle[] styles = parent.tdlib().textCompositionStyles();
+    Options.Builder b = new Options.Builder()
+      .info(Lang.getString(R.string.AiEditorChooseStyle))
+      .item(new OptionItem.Builder().id(R.id.btn_aiRewrite).name(R.string.AiEditorKeepStyle).icon(R.drawable.baseline_create_24).build())
+      .item(new OptionItem.Builder().id(R.id.btn_aiAddEmoji).name(R.string.AiEditorAddEmoji).icon(R.drawable.baseline_emoticon_outline_24).build());
+    if (styles != null) {
+      // Item ids of the styles are their indexes, which never match resource ids
+      for (int i = 0; i < styles.length; i++) {
+        TdApi.TextCompositionStyle style = styles[i];
+        if (StringUtils.isEmpty(style.name)) {
+          continue;
+        }
+        b.item(new OptionItem.Builder()
+          .id(i)
+          .name(StringUtils.isEmpty(style.title) ? style.name : style.title)
+          .icon(R.drawable.baseline_palette_24)
+          .build()
+        );
+      }
+    }
+    b.cancelItem();
+    parent.showOptions(b.build(), (optionItemView, id) -> {
+      if (id == R.id.btn_aiRewrite) {
+        composeTextWithAi(source, "", false);
+      } else if (id == R.id.btn_aiAddEmoji) {
+        composeTextWithAi(source, "", true);
+      } else if (styles != null && id >= 0 && id < styles.length) {
+        composeTextWithAi(source, styles[id].name, false);
+      }
+      return true;
+    });
+  }
+
+  private void fixTextWithAi (AiEditorSource source) {
+    final int contextId = ++aiEditorContextId;
+    UI.showToast(R.string.AiEditorWorking, Toast.LENGTH_SHORT);
+    parent.tdlib().send(new TdApi.FixTextWithAi(source.text), (fixedText, error) -> parent.runOnUiThreadOptional(() -> {
+      onAiEditorResult(contextId, source, fixedText != null ? fixedText.text : null, error);
+    }));
+  }
+
+  private void composeTextWithAi (AiEditorSource source, String styleName, boolean addEmojis) {
+    final int contextId = ++aiEditorContextId;
+    UI.showToast(R.string.AiEditorWorking, Toast.LENGTH_SHORT);
+    parent.tdlib().send(new TdApi.ComposeTextWithAi(source.text, "", styleName, addEmojis), (composedText, error) -> parent.runOnUiThreadOptional(() -> {
+      onAiEditorResult(contextId, source, composedText, error);
+    }));
+  }
+
+  private void onAiEditorResult (int contextId, AiEditorSource source, @Nullable TdApi.FormattedText result, @Nullable TdApi.Error error) {
+    if (contextId != aiEditorContextId) {
+      return;
+    }
+    if (error != null) {
+      if ("AICOMPOSE_FLOOD_PREMIUM".equals(error.message)) {
+        UI.showToast(R.string.AiEditorPremiumRequired, Toast.LENGTH_LONG);
+      } else {
+        UI.showError(error);
+      }
+      return;
+    }
+    if (result == null || StringUtils.isEmptyOrBlank(result.text)) {
+      return;
+    }
+    if (result.text.equals(source.text.text)) {
+      UI.showToast(R.string.AiEditorNoChanges, Toast.LENGTH_SHORT);
+      return;
+    }
+    Options options = new Options.Builder()
+      .title(Lang.getString(R.string.AiEditorPreview))
+      .info(TD.toCharSequence(result))
+      .item(new OptionItem.Builder().id(R.id.btn_done).name(R.string.AiEditorApply).icon(R.drawable.baseline_check_24).build())
+      .cancelItem()
+      .build();
+    parent.showOptions(options, (optionItemView, id) -> {
+      if (id == R.id.btn_done) {
+        applyAiEditorResult(source, result);
+      }
+      return true;
+    });
+  }
+
+  private void applyAiEditorResult (AiEditorSource source, TdApi.FormattedText result) {
+    if (!source.inputText.equals(inputView.getText().toString())) {
+      // The text was edited while the AI was working, its offsets are no longer valid
+      UI.showToast(R.string.AiEditorTextChanged, Toast.LENGTH_SHORT);
+      return;
+    }
+    if (source.isSelection) {
+      inputView.setSelection(source.start, source.end);
+      inputView.paste(result, false);
+    } else {
+      // Keeps the entities of the result, custom emoji included
+      inputView.setInput(TD.toCharSequence(result), true, true);
+    }
+    checkButtonsActive(true);
   }
 
   private boolean isSelectionEmpty () {
@@ -793,6 +971,7 @@ public class TextFormattingLayout extends FrameLayout implements TranslationsMan
     addButton(new ButtonData(android.R.id.cut, R.drawable.baseline_content_cut_24, false, 0, 2, 3));
     addButton(new ButtonData(android.R.id.copy, R.drawable.baseline_content_copy_24, false, 0, 3, 3));
     addButton(new ButtonData(android.R.id.paste, R.drawable.baseline_content_paste_24, false, 0, 4, 3));
+    addButton(new ButtonData(R.id.btn_aiEditor, R.drawable.baseline_auto_awesome_24, false, 0, 5, 3));
     addButton(new ButtonData(R.id.btn_circleBackspace, R.drawable.baseline_backspace_24, false, 0, 6, 3));
   }
 }

@@ -207,7 +207,7 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesHolder> {
   }
 
   public TGMessage getBottomActiveMessage () {
-    int index = indexOfMessage(m -> !m.isSponsoredMessage());
+    int index = indexOfMessage(m -> !m.isSponsoredMessage() && !m.isPendingStreamedMessage());
     return getMessage(index);
   }
 

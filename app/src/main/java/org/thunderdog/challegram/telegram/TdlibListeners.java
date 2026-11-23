@@ -648,6 +648,22 @@ public class TdlibListeners {
     );
   }
 
+  // updatePendingMessage
+
+  void updatePendingMessage (TdApi.UpdatePendingMessage update) {
+    runMessageUpdate(update.chatId, listener ->
+      listener.onPendingMessageUpdated(update)
+    );
+  }
+
+  // updateStopMessageDraft
+
+  void updateStopMessageDraft (TdApi.UpdateStopMessageDraft update) {
+    runMessageUpdate(update.chatId, listener ->
+      listener.onMessageDraftStopped(update.chatId, update.forumTopicId, update.draftId)
+    );
+  }
+
   // updateMessageSendSucceeded
 
   private void replaceMessage (long oldMessageId, TdApi.Message message) {

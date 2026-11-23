@@ -469,6 +469,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   private Set<String> activeEmojiReactions;
   private TdApi.ReactionType defaultReactionType;
   private TdApi.PaidReactionType defaultPaidReactionType;
+  private TdApi.TextCompositionStyle[] textCompositionStyles;
   private final Map<String, TGReaction> cachedReactions = new HashMap<>();
 
   private int storyStealthModeActiveUntilDate, storyStealthModeCooldownUntilDate;
@@ -7573,8 +7574,14 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
   }
 
+  @TdlibThread
   private void updatePendingMessage (TdApi.UpdatePendingMessage update) {
+    listeners.updatePendingMessage(update);
+  }
 
+  @TdlibThread
+  private void updateStopMessageDraft (TdApi.UpdateStopMessageDraft update) {
+    listeners.updateStopMessageDraft(update);
   }
 
   private void updateNewMessage (TdApi.UpdateNewMessage update, boolean isUpdate) {
@@ -9838,6 +9845,23 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
   }
 
+  @TdlibThread
+  private void updateTextCompositionStyles (TdApi.UpdateTextCompositionStyles update) {
+    synchronized (dataLock) {
+      this.textCompositionStyles = update.styles;
+    }
+  }
+
+  /**
+   * @return Styles that can be passed to {@link TdApi.ComposeTextWithAi}, or {@code null} if TDLib hasn't sent them yet
+   */
+  @Nullable
+  public TdApi.TextCompositionStyle[] textCompositionStyles () {
+    synchronized (dataLock) {
+      return textCompositionStyles;
+    }
+  }
+
   private void updateStickerSet (TdApi.StickerSet stickerSet) {
     animatedTgxEmoji.update(this, stickerSet);
     animatedDiceExplicit.update(this, stickerSet);
@@ -10086,6 +10110,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
         updateDefaultPaidReactionType((TdApi.UpdateDefaultPaidReactionType) update);
         break;
       }
+      case TdApi.UpdateTextCompositionStyles.CONSTRUCTOR: {
+        updateTextCompositionStyles((TdApi.UpdateTextCompositionStyles) update);
+        break;
+      }
       case TdApi.UpdateMessageUnreadReactions.CONSTRUCTOR: {
         updateMessageUnreadReactions((TdApi.UpdateMessageUnreadReactions) update);
         break;
@@ -10225,7 +10253,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
         break;
       }
       case TdApi.UpdateStopMessageDraft.CONSTRUCTOR: {
-        // TODO?
+        updateStopMessageDraft((TdApi.UpdateStopMessageDraft) update);
         break;
       }
 
@@ -10593,7 +10621,6 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
       case TdApi.UpdateActiveGiftAuctions.CONSTRUCTOR:
       case TdApi.UpdateStakeDiceState.CONSTRUCTOR:
       case TdApi.UpdateNewOauthRequest.CONSTRUCTOR:
-      case TdApi.UpdateTextCompositionStyles.CONSTRUCTOR:
       case TdApi.UpdateAllowedBotUsernamePremiumSuffixes.CONSTRUCTOR:
       case TdApi.UpdateTonWalletGaslessTransfersInfo.CONSTRUCTOR:
       case TdApi.UpdateTonWalletState.CONSTRUCTOR:

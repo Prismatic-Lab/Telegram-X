@@ -3039,6 +3039,19 @@
   <string name="TextFormatMonospace">Monospace</string>
   <string name="TextFormatSpoiler">Spoiler</string>
   <string name="TextFormatQuote">Quote</string>
+  <string name="AiEditorInfo">Improve the whole message with AI</string>
+  <string name="AiEditorInfoSelection">Improve the selected text with AI</string>
+  <string name="AiEditorFix">Fix text</string>
+  <string name="AiEditorRewrite">Rewrite</string>
+  <string name="AiEditorChooseStyle">Choose a style for the new text</string>
+  <string name="AiEditorKeepStyle">Keep current style</string>
+  <string name="AiEditorAddEmoji">Add emoji</string>
+  <string name="AiEditorWorking">Working on your text…</string>
+  <string name="AiEditorPreview">AI suggestion</string>
+  <string name="AiEditorApply">Apply</string>
+  <string name="AiEditorNoChanges">No changes needed.</string>
+  <string name="AiEditorTextChanged">The text was changed while AI was working. Try again.</string>
+  <string name="AiEditorPremiumRequired">You have used all free AI edits for now. Telegram Premium raises the limit.</string>
   <string name="TextFormatStrikethrough">Strikethrough</string>
   <string name="TextFormatUnderline">Underline</string>
   <string name="TextFormatLink">Create Link</string>
@@ -5507,6 +5520,7 @@
   <string name="MessageSummaryOff">Show original</string>
   <string name="MessageSummaryHeader">AI summary</string>
   <string name="MessageSummaryLoading">Summarizing…</string>
+  <string name="PendingMessageStop">Stop</string>
   <string name="TranslatingTo">Translating to %1$s</string>
   <string name="TranslatedFrom">Translated from %1$s</string>
   <string name="TranslationFailed">Translation failed</string>

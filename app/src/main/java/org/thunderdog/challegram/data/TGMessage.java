@@ -4797,6 +4797,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public boolean isFakeMessage () {
+    if (pendingDraft != null) {
+      return true;
+    }
     //noinspection WrongConstant
     if (msg.content.getConstructor() == TdApiExt.MessageChatEvent.CONSTRUCTOR) {
       return true;
@@ -5346,6 +5349,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public boolean checkIsUnread (boolean needMention) {
+    if (pendingDraft != null) {
+      return false;
+    }
     if (needMention && msg.containsUnreadMention)
       return true;
     TdApi.Chat chat = getChat();
@@ -10081,6 +10087,113 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     }
 
     return false;
+  }
+
+  // Pending (streamed) bot messages
+
+  /**
+   * Message id of the local bubble that shows {@link TdApi.UpdatePendingMessage}.
+   * It is above any real message id, so the bubble always sorts to the bottom.
+   */
+  public static final long PENDING_MESSAGE_ID = Long.MAX_VALUE;
+
+  public static final class PendingDraft {
+    public final long chatId;
+    public final int forumTopicId;
+    public final long draftId;
+    public final boolean canStop, keepOnStop;
+
+    public PendingDraft (TdApi.UpdatePendingMessage update) {
+      this(update.chatId, update.forumTopicId, update.draftId, update.canStop, update.keepOnStop);
+    }
+
+    public PendingDraft (long chatId, int forumTopicId, long draftId, boolean canStop, boolean keepOnStop) {
+      this.chatId = chatId;
+      this.forumTopicId = forumTopicId;
+      this.draftId = draftId;
+      this.canStop = canStop;
+      this.keepOnStop = keepOnStop;
+    }
+
+    @Nullable
+    public TdApi.MessageTopic toMessageTopic () {
+      return forumTopicId != 0 ? new TdApi.MessageTopicForum(forumTopicId) : null;
+    }
+
+    public boolean isSameDraft (long chatId, int forumTopicId, long draftId) {
+      return this.chatId == chatId && this.forumTopicId == forumTopicId && this.draftId == draftId;
+    }
+
+    public boolean isSameThread (long chatId, int forumTopicId) {
+      return this.chatId == chatId && this.forumTopicId == forumTopicId;
+    }
+
+    public PendingDraft withCanStop (boolean canStop) {
+      return new PendingDraft(chatId, forumTopicId, draftId, canStop, keepOnStop);
+    }
+  }
+
+  private @Nullable PendingDraft pendingDraft;
+
+  public static TdApi.Message toPendingMessage (Tdlib tdlib, PendingDraft draft, TdApi.MessageContent content) {
+    TdApi.Message message = new TdApi.Message();
+    message.chatId = draft.chatId;
+    message.id = PENDING_MESSAGE_ID;
+    message.senderId = new TdApi.MessageSenderUser(tdlib.chatUserId(draft.chatId));
+    message.date = (int) tdlib.currentTime(TimeUnit.SECONDS);
+    message.content = content;
+    message.topicId = draft.toMessageTopic();
+    if (draft.canStop) {
+      message.replyMarkup = new TdApi.ReplyMarkupInlineKeyboard(new TdApi.InlineKeyboardButton[][] {
+        new TdApi.InlineKeyboardButton[] {
+          new TdApi.InlineKeyboardButton(Lang.getString(R.string.PendingMessageStop), 0, new TdApi.ButtonStyleDefault(), new TdApi.InlineKeyboardButtonTypeCallback(new byte[0]))
+        }
+      }, false);
+    }
+    return message;
+  }
+
+  /**
+   * Creates the local bubble of a bot reply that is still being generated.
+   * Such bubble is a fake message: it can't be selected, replied to, or viewed.
+   */
+  public static TGMessage valueOfPendingMessage (MessagesManager context, PendingDraft draft, TdApi.MessageContent content, @Nullable TdApi.Chat chat, @Nullable ThreadInfo messageThread) {
+    TdApi.Message message = toPendingMessage(context.controller().tdlib(), draft, content);
+    TGMessage parsedMessage = valueOf(context, message);
+    parsedMessage.pendingDraft = draft;
+    if (chat != null) {
+      parsedMessage.setChatData(chat, messageThread);
+    }
+    return parsedMessage;
+  }
+
+  public final boolean isPendingStreamedMessage () {
+    return pendingDraft != null;
+  }
+
+  @Nullable
+  public final PendingDraft getPendingDraft () {
+    return pendingDraft;
+  }
+
+  public void stopPendingMessage (@Nullable Runnable onFinishProgress) {
+    final PendingDraft draft = this.pendingDraft;
+    if (draft == null || !draft.canStop) {
+      if (onFinishProgress != null) {
+        onFinishProgress.run();
+      }
+      return;
+    }
+    tdlib.send(new TdApi.StopPendingMessage(draft.chatId, draft.toMessageTopic(), draft.draftId), (ok, error) -> {
+      if (onFinishProgress != null) {
+        onFinishProgress.run();
+      }
+      if (error != null) {
+        UI.showError(error);
+      } else {
+        manager.onPendingMessageStopped(draft.chatId, draft.forumTopicId, draft.draftId);
+      }
+    });
   }
 
   // Sponsored-related tools

@@ -550,6 +550,10 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     if (msg == null /*|| msg instanceof TGMessageBotInfo*/) {
       return false;
     }
+    if (msg.isPendingStreamedMessage()) {
+      // Local bubble of a reply the bot is still generating: no message options
+      return false;
+    }
     MessagesController m = msg.messagesController();
     if (!m.isFocused() && !m.getParentOrSelf().isFocused()) {
       return false;

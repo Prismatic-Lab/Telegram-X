@@ -505,6 +505,10 @@ public class TGMessageRichMessage extends TGMessage implements MediaWrapper.OnCl
       showFullView(view, button, fullRichMessage);
       return;
     }
+    if (isPendingStreamedMessage()) {
+      // The bot is still writing: there is no message to fetch the full article from yet
+      return;
+    }
     final long chatId = msg.chatId, messageId = msg.id;
     final int contextId = button != null ? button.getContextId() : 0;
     if (button != null) {

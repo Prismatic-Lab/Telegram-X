@@ -638,6 +638,10 @@
   <item type="id" name="btn_autoplayGIFs" />
   <item type="id" name="btn_quickTranslate" />
   <item type="id" name="btn_translate" />
+  <item type="id" name="btn_aiEditor" />
+  <item type="id" name="btn_aiFix" />
+  <item type="id" name="btn_aiRewrite" />
+  <item type="id" name="btn_aiAddEmoji" />
   <item type="id" name="btn_toggleCollapseRecentStickers" />
   <item type="id" name="btn_emojiSuggestions" />
   <item type="id" name="btn_stickerSuggestions" />
