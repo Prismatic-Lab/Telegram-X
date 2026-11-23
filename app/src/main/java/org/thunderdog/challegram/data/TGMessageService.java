@@ -1301,6 +1301,69 @@ public final class TGMessageService extends TGMessageServiceImpl {
     });
   }
 
+  // Star gifts
+
+  private static String starGiftUniqueName (TdApi.UpgradedGift gift) {
+    return Lang.getString(R.string.StarGiftUniqueName, gift.title, Integer.toString(gift.number));
+  }
+
+  private static String starGiftPrice (TdApi.GiftResalePrice price) {
+    if (price == null) {
+      return "";
+    }
+    switch (price.getConstructor()) {
+      case TdApi.GiftResalePriceStar.CONSTRUCTOR:
+        return Lang.plural(R.string.xStarGiftValue, ((TdApi.GiftResalePriceStar) price).starCount);
+      case TdApi.GiftResalePriceGram.CONSTRUCTOR: {
+        long cents = ((TdApi.GiftResalePriceGram) price).gramCentCount;
+        return Lang.getString(R.string.StarGiftGramPrice, String.format(java.util.Locale.US, "%d.%02d", cents / 100, Math.abs(cents % 100)));
+      }
+      default:
+        return "";
+    }
+  }
+
+  public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageRefundedUpgradedGift refundedGift) {
+    super(context, msg);
+    setTextCreator(() -> getText(
+      R.string.ActionStarGiftRefunded,
+      new BoldArgument(Lang.plural(R.string.xStarGiftValue, refundedGift.gift.starCount))
+    ));
+  }
+
+  public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageUpgradedGiftPurchaseOffer offer) {
+    super(context, msg);
+    setTextCreator(() -> {
+      int resId = R.string.ActionStarGiftPurchaseOffer;
+      if (offer.state != null) {
+        switch (offer.state.getConstructor()) {
+          case TdApi.GiftPurchaseOfferStateAccepted.CONSTRUCTOR:
+            resId = R.string.ActionStarGiftPurchaseOfferAccepted;
+            break;
+          case TdApi.GiftPurchaseOfferStateRejected.CONSTRUCTOR:
+            resId = R.string.ActionStarGiftPurchaseOfferRejected;
+            break;
+          default:
+            break;
+        }
+      }
+      return getText(
+        resId,
+        new BoldArgument(starGiftUniqueName(offer.gift)),
+        new BoldArgument(starGiftPrice(offer.price))
+      );
+    });
+  }
+
+  public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageUpgradedGiftPurchaseOfferRejected offerRejected) {
+    super(context, msg);
+    setTextCreator(() -> getText(
+      offerRejected.wasExpired ? R.string.ActionStarGiftPurchaseOfferExpired : R.string.ActionStarGiftPurchaseOfferRejected,
+      new BoldArgument(starGiftUniqueName(offerRejected.gift)),
+      new BoldArgument(starGiftPrice(offerRejected.price))
+    ));
+  }
+
   // Paid messages
 
   public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessagePaidMessagesRefunded paidMessagesRefunded) {

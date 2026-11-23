@@ -6043,5 +6043,41 @@
   <string name="DeleteCallHistoryForEveryone">Delete for everyone</string>
   <string name="RestrictedContent">Restricted Content</string>
   <string name="SensitiveContent">Sensitive Content</string>
+  <!-- Widgets -->
+  <string name="WidgetTitle">Widget</string>
+  <string name="WidgetTapToLoad">Tap to load</string>
+  <string name="WidgetFrom">Widget from %1$s</string>
+  <string name="WidgetOpenLinkInvalid">This link can\'t be opened from a widget</string>
+  <!-- Star gifts -->
+  <string name="StarGiftTitle">Gift</string>
+  <string name="StarGiftSentYou">%1$s sent you a gift</string>
+  <string name="StarGiftYouSent">You sent a gift to %1$s</string>
+  <string name="StarGiftYouBought">You bought a gift</string>
+  <string name="StarGiftUnknownSender">Someone sent you a gift</string>
+  <string name="xStarGiftValue_one">%1$s Star</string>
+  <string name="xStarGiftValue_other">%1$s Stars</string>
+  <string name="StarGiftUniqueName">%1$s #%2$s</string>
+  <string name="StarGiftModel">Model: %1$s</string>
+  <string name="StarGiftBackdrop">Backdrop: %1$s</string>
+  <string name="StarGiftSymbol">Symbol: %1$s</string>
+  <string name="StarGiftView">View Gift</string>
+  <string name="StarGiftDisplayOnPage">Display on my page</string>
+  <string name="StarGiftHideFromPage">Hide from my page</string>
+  <string name="StarGiftConvert">Convert to %1$s</string>
+  <string name="StarGiftConvertConfirm">Convert this gift to %1$s? The gift will disappear and this can\'t be undone.</string>
+  <string name="StarGiftConverted">This gift was converted to Stars</string>
+  <string name="StarGiftRefundedInfo">This gift was refunded</string>
+  <string name="StarGiftUpgradedInfo">This gift was upgraded to a unique gift</string>
+  <string name="StarGiftVisible">Visible on the profile page</string>
+  <string name="StarGiftNotVisible">Not visible on the profile page</string>
+  <string name="StarGiftPrivate">Sender and message are only visible to the receiver</string>
+  <string name="StarGiftCanUpgrade">Can be upgraded to a unique gift</string>
+  <string name="StarGiftClose">Close</string>
+  <string name="StarGiftGramPrice">%1$s TON</string>
+  <string name="ActionStarGiftRefunded">Gift %1$s was refunded</string>
+  <string name="ActionStarGiftPurchaseOffer">Offer to buy %1$s for %2$s</string>
+  <string name="ActionStarGiftPurchaseOfferAccepted">Offer to buy %1$s for %2$s was accepted</string>
+  <string name="ActionStarGiftPurchaseOfferRejected">Offer to buy %1$s for %2$s was rejected</string>
+  <string name="ActionStarGiftPurchaseOfferExpired">Offer to buy %1$s for %2$s expired</string>
 
 </resources>
