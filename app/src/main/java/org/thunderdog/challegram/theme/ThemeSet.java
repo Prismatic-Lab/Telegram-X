@@ -27,6 +27,8 @@ import org.thunderdog.challegram.theme.builtin.ThemeNightBlue;
 import org.thunderdog.challegram.theme.builtin.ThemeOrange;
 import org.thunderdog.challegram.theme.builtin.ThemePink;
 import org.thunderdog.challegram.theme.builtin.ThemeRed;
+import org.thunderdog.challegram.theme.builtin.ThemeSwissDark;
+import org.thunderdog.challegram.theme.builtin.ThemeSwissLight;
 import org.thunderdog.challegram.theme.builtin.ThemeWhiteBlack;
 import org.thunderdog.challegram.unsorted.Settings;
 
