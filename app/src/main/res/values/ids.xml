@@ -1492,4 +1492,27 @@
   <item type="id" name="btn_toggleTopicPinned" />
   <item type="id" name="btn_deleteTopic" />
   <item type="id" name="btn_readTopic" />
+  <!-- TGX Mod: video chats -->
+  <item type="id" name="btn_videoChatsExperimental" />
+  <item type="id" name="btn_liveStreamCreate" />
+  <item type="id" name="btn_videoChatCreate" />
+  <item type="id" name="btn_videoChatDecline" />
+  <item type="id" name="btn_videoChatDescription" />
+  <item type="id" name="btn_videoChatEnd" />
+  <item type="id" name="btn_videoChatJoin" />
+  <item type="id" name="btn_videoChatLeave" />
+  <item type="id" name="btn_videoChatMute" />
+  <item type="id" name="btn_videoChatMuteNew" />
+  <item type="id" name="btn_videoChatMuteParticipant" />
+  <item type="id" name="btn_videoChatNotify" />
+  <item type="id" name="btn_videoChatOpen" />
+  <item type="id" name="btn_videoChatParticipant" />
+  <item type="id" name="btn_videoChatRaiseHand" />
+  <item type="id" name="btn_videoChatSpeaker" />
+  <item type="id" name="btn_videoChatStartNow" />
+  <item type="id" name="btn_videoChatStatus" />
+  <item type="id" name="btn_videoChatUnmuteParticipant" />
+  <item type="id" name="btn_videoChatWatch" />
+  <item type="id" name="controller_groupCall" />
+  <item type="id" name="controller_liveStream" />
 </resources>

@@ -7767,11 +7767,79 @@ public class TdlibUi extends Handler {
   // Video Chats & Live Streams
 
   public void openVoiceChatInvitation (ViewController<?> context, TdApi.InternalLinkTypeVideoChat invitation) {
-    // TODO some confirmation screen & join voice chat if agreed
+    // TGX Mod: called by MessagesController after the chat from the link was opened
+    if (!(context instanceof MessagesController)) {
+      return;
+    }
+    long chatId = ((MessagesController) context).getChatId();
+    TdApi.Chat chat = tdlib.chat(chatId);
+    if (chat == null || chat.videoChat == null || chat.videoChat.groupCallId == 0) {
+      UI.showToast(R.string.VideoChatHasEnded, Toast.LENGTH_SHORT);
+      return;
+    }
+    openVoiceChat(context, chatId, chat.videoChat.groupCallId, invitation.inviteHash, false);
   }
 
   public void openVoiceChat (ViewController<?> context, int groupCallId, @Nullable UrlOpenParameters openParameters) {
-    // TODO open voice chat layer
+    // TGX Mod: opened from video chat service messages
+    long chatId = context instanceof MessagesController ? ((MessagesController) context).getChatId() : 0;
+    openVoiceChat(context, chatId, groupCallId, null, false);
+  }
+
+  /**
+   * TGX Mod: opens the video chat screen, or the player for RTMP live streams.
+   *
+   * @param join whether to start joining right away (voice chats only; streams always start playing)
+   */
+  public void openVoiceChat (ViewController<?> context, long chatId, int groupCallId, @Nullable String inviteHash, boolean join) {
+    if (!org.thunderdog.challegram.voip.GroupCallSession.isFeatureEnabled()) {
+      UI.showToast(R.string.VideoChatsDisabled, Toast.LENGTH_SHORT);
+      return;
+    }
+    tdlib.send(new TdApi.GetGroupCall(groupCallId), (groupCall, error) -> UI.post(() -> {
+      if (context.isDestroyed()) {
+        return;
+      }
+      if (error != null) {
+        UI.showError(error);
+        return;
+      }
+      if (groupCall.isRtmpStream && groupCall.isActive) {
+        org.thunderdog.challegram.ui.LiveStreamController c = new org.thunderdog.challegram.ui.LiveStreamController(context.context(), tdlib);
+        c.setArguments(new org.thunderdog.challegram.ui.LiveStreamController.Args(chatId, groupCallId, inviteHash));
+        context.navigateTo(c);
+      } else {
+        org.thunderdog.challegram.ui.GroupCallController c = new org.thunderdog.challegram.ui.GroupCallController(context.context(), tdlib);
+        c.setArguments(new org.thunderdog.challegram.ui.GroupCallController.Args(chatId, groupCallId, inviteHash, join));
+        context.navigateTo(c);
+      }
+    }));
+  }
+
+  /**
+   * TGX Mod: asks whether to start a voice chat or an RTMP live stream, then creates it.
+   */
+  public void createVideoChat (ViewController<?> context, long chatId) {
+    boolean isChannel = tdlib.isChannel(chatId);
+    context.showOptions(null,
+      new int[] {R.id.btn_videoChatCreate, R.id.btn_liveStreamCreate},
+      new String[] {
+        Lang.getString(isChannel ? R.string.LiveStreamStartVoice : R.string.VideoChatStart),
+        Lang.getString(R.string.LiveStreamStartRtmp)
+      },
+      new int[] {ViewController.OptionColor.NORMAL, ViewController.OptionColor.NORMAL},
+      new int[] {R.drawable.baseline_mic_24, R.drawable.baseline_videocam_24},
+      (itemView, id) -> {
+        boolean isRtmp = id == R.id.btn_liveStreamCreate;
+        tdlib.send(new TdApi.CreateVideoChat(chatId, "", 0, isRtmp), (groupCallId, error) -> UI.post(() -> {
+          if (error != null) {
+            UI.showError(error);
+          } else if (!context.isDestroyed()) {
+            openVoiceChat(context, chatId, groupCallId.id, null, false);
+          }
+        }));
+        return true;
+      });
   }
 
   // Suggestions by emoji

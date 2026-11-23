@@ -1365,6 +1365,8 @@ public class SettingsNotificationController extends RecyclerViewController<Setti
           view.getToggler().setRadioEnabled(!tdlib.areSentScheduledMessageNotificationsDisabled(), isUpdate);
         } else if (itemId == R.id.btn_silenceNonContacts) {
           view.getToggler().setRadioEnabled(tdlib.settings().needMuteNonContacts(), isUpdate);
+        } else if (itemId == R.id.btn_videoChatsExperimental) {
+          view.getToggler().setRadioEnabled(org.thunderdog.challegram.voip.GroupCallSession.isFeatureEnabled(), isUpdate);
         } else if (itemId == R.id.btn_archiveMuteNonContacts) {
           view.getToggler().setRadioEnabled(archiveChatListSettings != null && archiveChatListSettings.archiveAndMuteNewChatsFromUnknownUsers, isUpdate);
         } else if (itemId == R.id.btn_repeatNotifications) {
@@ -1843,6 +1845,12 @@ public class SettingsNotificationController extends RecyclerViewController<Setti
     ));
     items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
     items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.PasscodeRequireForCallsInfo));
+
+    // TGX Mod: video chats & live streams
+    items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+    items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_videoChatsExperimental, 0, R.string.VideoChatsExperimental));
+    items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
+    items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.VideoChatsExperimentalInfo));
 
     if (tdlib.notifications().hasNonDefaultCallSettings()) {
       addCallSettingsReset(items);
@@ -2685,6 +2693,8 @@ public class SettingsNotificationController extends RecyclerViewController<Setti
       tdlib.setDisableSentScheduledMessageNotifications(!adapter.toggleView(v));
     } else if (viewId == R.id.btn_silenceNonContacts) {
       tdlib.settings().setUserPreference(TdlibSettingsManager.PREFERENCE_MUTE_NON_CONTACTS, adapter.toggleView(v));
+    } else if (viewId == R.id.btn_videoChatsExperimental) {
+      org.thunderdog.challegram.voip.GroupCallSession.setFeatureEnabled(adapter.toggleView(v));
     } else if (viewId == R.id.btn_archiveMuteNonContacts) {
       if (archiveChatListSettings != null) {
         archiveChatListSettings.archiveAndMuteNewChatsFromUnknownUsers = adapter.toggleView(v);

@@ -267,6 +267,11 @@
       android:name=".service.TGCallService"
       android:exported="false"
       android:foregroundServiceType="phoneCall|microphone|mediaPlayback" />
+    <!-- TGX Mod: video chats / live streams -->
+    <service
+      android:name=".service.GroupCallService"
+      android:exported="false"
+      android:foregroundServiceType="microphone|mediaPlayback" />
     <receiver android:name=".receiver.VoIPMediaButtonReceiver"
       android:exported="false">
       <intent-filter>

@@ -101,6 +101,7 @@ import org.thunderdog.challegram.component.chat.InlineResultsWrap;
 import org.thunderdog.challegram.component.chat.InputView;
 import org.thunderdog.challegram.component.chat.InvisibleImageView;
 import org.thunderdog.challegram.component.chat.JoinRequestsView;
+import org.thunderdog.challegram.component.chat.VideoChatBarView;
 import org.thunderdog.challegram.component.chat.MessageSenderButton;
 import org.thunderdog.challegram.component.chat.MessageView;
 import org.thunderdog.challegram.component.chat.MessageViewGroup;
@@ -235,6 +236,7 @@ import org.thunderdog.challegram.util.text.TextColorSets;
 import org.thunderdog.challegram.v.HeaderEditText;
 import org.thunderdog.challegram.v.MessagesLayoutManager;
 import org.thunderdog.challegram.v.MessagesRecyclerView;
+import org.thunderdog.challegram.voip.GroupCallSession;
 import org.thunderdog.challegram.voip.VoIPLogs;
 import org.thunderdog.challegram.widget.AvatarView;
 import org.thunderdog.challegram.widget.CheckBoxView;
@@ -939,8 +941,16 @@ public class MessagesController extends ViewController<MessagesController.Argume
       }
     };
 
+    // TGX Mod: video chat / live stream bar
+    int videoChatBarHeight = Screen.dp(48f);
+    videoChatBarView = new VideoChatBarView(context, tdlib);
+    videoChatBarView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, videoChatBarHeight));
+    videoChatBarView.addThemeListeners(this);
+    videoChatBarView.setDelegate((barView, barChatId, groupCallId, join) -> tdlib.ui().openVoiceChat(this, barChatId, groupCallId, null, join));
+    RippleSupport.setSimpleWhiteBackground(videoChatBarView, this);
+
     topBar.initWithList(new CollapseListView.Item[] {
-      // TODO voice chat bar
+      videoChatItem = new CollapseListView.ViewItem(videoChatBarView, videoChatBarHeight),
       pinnedMessagesItem,
       requestsItem = new CollapseListView.ViewItem(requestsView, requestsViewHeight),
       liveLocationItem = new CollapseListView.ViewItem(liveLocationView, liveLocationHeight),
@@ -2370,6 +2380,14 @@ public class MessagesController extends ViewController<MessagesController.Argume
           });
         }
       });
+    } else if (id == R.id.btn_videoChatOpen) {
+      if (chat != null && chat.videoChat != null && chat.videoChat.groupCallId != 0) {
+        tdlib.ui().openVoiceChat(this, chat.id, chat.videoChat.groupCallId, null, false);
+      }
+    } else if (id == R.id.btn_videoChatCreate) {
+      if (chat != null) {
+        tdlib.ui().createVideoChat(this, chat.id);
+      }
     } else if (id == R.id.btn_openLinkedChat) {
       openLinkedChat(false);
     } else if (id == R.id.btn_openDirectMessages) {
@@ -3031,6 +3049,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     if (!inPreviewMode && !isInForceTouchMode()) {
       checkActionBar();
       checkJoinRequests(chat.pendingJoinRequests);
+      checkVideoChat(chat.videoChat);
       checkCanSendMessagesToUser(true);
     }
     if (inputView != null) {
@@ -4541,6 +4560,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
       requestsView.performDestroy();
     }
 
+    if (videoChatBarView != null) {
+      videoChatBarView.performDestroy();
+    }
+
     if (reactionsButton != null) {
       reactionsButton.performDestroy();
     }
@@ -4657,6 +4680,18 @@ public class MessagesController extends ViewController<MessagesController.Argume
     if ((!tdlib.isChannel(chat.id) || (status != null && !TD.isLeft(status))) && !tdlib.isSelfChat(chat.id)) {
       ids.append(R.id.btn_mute);
       strings.append(tdlib.chatNotificationsEnabled(chat.id) ? R.string.Mute : R.string.Unmute);
+    }
+
+    if (GroupCallSession.isFeatureEnabled() && !ChatId.isUserChat(chat.id) && !isSecretChat()) {
+      // TGX Mod: video chats / live streams
+      boolean isChannelChat = tdlib.isChannel(chat.id);
+      if (chat.videoChat != null && chat.videoChat.groupCallId != 0) {
+        ids.append(R.id.btn_videoChatOpen);
+        strings.append(isChannelChat ? R.string.LiveStreamOpen : R.string.VideoChatOpenMenu);
+      } else if (GroupCallSession.canManageVideoChats(tdlib, chat.id)) {
+        ids.append(R.id.btn_videoChatCreate);
+        strings.append(isChannelChat ? R.string.LiveStreamStart : R.string.VideoChatStart);
+      }
     }
 
     if (tdlib.canReportChatSpam(chat.id)) {
@@ -6728,6 +6763,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
   private JoinRequestsView requestsView;
   private CollapseListView.Item requestsItem;
 
+  private VideoChatBarView videoChatBarView;
+  private CollapseListView.Item videoChatItem;
+
   public @Nullable ReplyInfo getCurrentReplyId () {
     if (reply != null) {
       return reply.withTopic(getMessageThreadChatId(), getMessageTopicId());
@@ -8570,6 +8608,24 @@ public class MessagesController extends ViewController<MessagesController.Argume
         .setSaveStr(R.string.Done)
         .setSaveColorId(ColorId.textNegative));
     }).setIsNegative();
+  }
+
+  private void checkVideoChat (@Nullable TdApi.VideoChat videoChat) {
+    if (!needActionBar() || videoChatBarView == null || chat == null) {
+      return;
+    }
+    boolean visible = GroupCallSession.isFeatureEnabled() && videoChat != null && videoChat.groupCallId != 0;
+    visible = videoChatBarView.setVideoChat(chat.id, visible ? videoChat : null) && visible;
+    topBar.setItemVisible(videoChatItem, visible, isFocused());
+  }
+
+  @Override
+  public void onChatVideoChatChanged (long chatId, TdApi.VideoChat videoChat) {
+    runOnUiThreadOptional(() -> {
+      if (getChatId() == chatId) {
+        checkVideoChat(videoChat);
+      }
+    });
   }
 
   private void checkJoinRequests (TdApi.ChatJoinRequestsInfo info) {

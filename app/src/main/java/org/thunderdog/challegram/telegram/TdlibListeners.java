@@ -534,6 +534,18 @@ public class TdlibListeners {
     downloadsListListener.remove(listener);
   }
 
+  // TGX Mod: group calls (video chats / live streams)
+
+  @AnyThread
+  public void subscribeToGroupCallUpdates (int groupCallId, GroupCallListener listener) {
+    specificGroupCallListeners.add(groupCallId, listener);
+  }
+
+  @AnyThread
+  public void unsubscribeFromGroupCallUpdates (int groupCallId, GroupCallListener listener) {
+    specificGroupCallListeners.remove(groupCallId, listener);
+  }
+
   public void updateFileAddedToDownloads (TdApi.UpdateFileAddedToDownloads update) {
     for (DownloadsListUpdateListener listener : downloadsListListener) {
       listener.updateFileAddedToDownloads(update.fileDownload, update.counts);
