@@ -1481,4 +1481,15 @@
   <item type="id" name="btn_webAppShare" />
   <item type="id" name="btn_webAppRemoveFromMenu" />
   <item type="id" name="btn_miniApps" />
+  <item type="id" name="controller_forumTopics" />
+  <item type="id" name="menu_forumTopics" />
+  <item type="id" name="btn_forumTopicsList" />
+  <item type="id" name="btn_viewAsTopics" />
+  <item type="id" name="btn_viewAsMessages" />
+  <item type="id" name="btn_createTopic" />
+  <item type="id" name="btn_editTopic" />
+  <item type="id" name="btn_toggleTopicClosed" />
+  <item type="id" name="btn_toggleTopicPinned" />
+  <item type="id" name="btn_deleteTopic" />
+  <item type="id" name="btn_readTopic" />
 </resources>

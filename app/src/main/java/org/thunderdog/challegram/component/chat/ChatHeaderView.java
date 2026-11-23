@@ -20,15 +20,20 @@ import android.view.MotionEvent;
 import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
+import org.thunderdog.challegram.data.AvatarPlaceholder;
 import org.thunderdog.challegram.data.ThreadInfo;
 import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.navigation.ComplexHeaderView;
 import org.thunderdog.challegram.navigation.HeaderView;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.telegram.TdlibAccentColor;
 import org.thunderdog.challegram.theme.ThemeDeprecated;
 import org.thunderdog.challegram.tool.Screen;
+import org.thunderdog.challegram.ui.ForumTopics;
+import org.thunderdog.challegram.util.text.Letters;
 
+import me.vkryl.core.ColorUtils;
 import me.vkryl.core.StringUtils;
 import tgx.td.ChatId;
 
@@ -92,6 +97,7 @@ public class ChatHeaderView extends ComplexHeaderView {
 
   public void setChat (Tdlib tdlib, TdApi.Chat chat, @Nullable ThreadInfo messageThread) {
     this.tdlib = tdlib;
+    this.isForumTopic = false;
 
     if (chat == null) {
       setText("Debug controller", "nobody should find this view");
@@ -119,11 +125,40 @@ public class ChatHeaderView extends ComplexHeaderView {
     }
   }
 
+  // TGX Mod: forum topic header (topic icon + name, chat title as subtitle)
+
+  private boolean isForumTopic;
+
+  public void setForumTopic (Tdlib tdlib, TdApi.Chat chat, @Nullable TdApi.ForumTopicInfo info, @Nullable TdApi.MessageTopic topicId) {
+    this.tdlib = tdlib;
+    this.isForumTopic = true;
+    int color = ColorUtils.color(255, ForumTopics.iconColor(info));
+    TdlibAccentColor accentColor = new TdlibAccentColor(new TdApi.AccentColor(
+      FORUM_TOPIC_ACCENT_COLOR_ID, TdlibAccentColor.BuiltInId.BLUE, new int[] {color}, new int[] {color}, 0
+    ));
+    getAvatarReceiver().requestPlaceholder(tdlib, new AvatarPlaceholder.Metadata(accentColor, new Letters(ForumTopics.iconLetter(info))), AvatarReceiver.Options.NONE);
+    setEmojiStatus(null);
+    setShowVerify(false);
+    setShowScam(false);
+    setShowFake(false);
+    setShowLock(false);
+    setUseRedHighlight(false);
+    String title = info != null && !StringUtils.isEmpty(info.name) ? info.name : tdlib.chatTitle(chat);
+    setText(title, !StringUtils.isEmpty(forcedSubtitle) ? forcedSubtitle : tdlib.chatTitle(chat));
+    setExpandedSubtitle(null);
+    attachChatStatus(chat.id, topicId);
+  }
+
+  private static final int FORUM_TOPIC_ACCENT_COLOR_ID = 1_000_000;
+
   // Updates (new)
 
   private Tdlib tdlib;
 
   public void updateUserStatus (TdApi.Chat chat) {
+    if (isForumTopic) {
+      return;
+    }
     if (StringUtils.isEmpty(forcedSubtitle)) {
       setSubtitle(tdlib.status().chatStatus(chat));
       setExpandedSubtitle(tdlib.status().chatStatusExpanded(chat));

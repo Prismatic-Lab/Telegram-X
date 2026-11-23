@@ -107,6 +107,7 @@ import org.thunderdog.challegram.ui.ListItem;
 import org.thunderdog.challegram.ui.MainController;
 import org.thunderdog.challegram.ui.MapController;
 import org.thunderdog.challegram.ui.MapControllerFactory;
+import org.thunderdog.challegram.ui.ForumTopics;
 import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.ui.PasscodeController;
 import org.thunderdog.challegram.ui.PasscodeSetupController;
@@ -1740,6 +1741,7 @@ public class TdlibUi extends Handler {
   private static final int CHAT_OPTION_OPEN_PROFILE_IF_DUPLICATE = 1 << 7;
   private static final int CHAT_OPTION_OPEN_DIRECT_MESSAGES_CHAT = 1 << 8;
   private static final int CHAT_OPTION_START_CALL = 1 << 9;
+  private static final int CHAT_OPTION_VIEW_AS_MESSAGES = 1 << 10; // TGX Mod: forum chats
 
   public static class ChatOpenParameters {
     public int options;
@@ -1761,6 +1763,7 @@ public class TdlibUi extends Handler {
     public TdApi.ChatInviteLinkInfo inviteLinkInfo;
     public ThreadInfo threadInfo;
     public TdApi.MessageTopic messageTopicId;
+    public @Nullable TdApi.ForumTopic forumTopic;
     public TdApi.SearchMessagesFilter filter;
     public TdApi.InternalLinkTypeVideoChat videoChatOrLiveStreamInvitation;
     public TdApi.FormattedText fillDraft;
@@ -1841,6 +1844,21 @@ public class TdlibUi extends Handler {
         throw new IllegalArgumentException();
       }
       this.threadInfo = threadInfo;
+      return this;
+    }
+
+    public ChatOpenParameters messageTopic (@Nullable TdApi.MessageTopic messageTopicId) {
+      this.messageTopicId = messageTopicId;
+      return this;
+    }
+
+    public ChatOpenParameters forumTopic (@Nullable TdApi.ForumTopic forumTopic) {
+      this.forumTopic = forumTopic;
+      return this;
+    }
+
+    public ChatOpenParameters viewAsMessages () {
+      this.options |= CHAT_OPTION_VIEW_AS_MESSAGES;
       return this;
     }
 
@@ -2163,11 +2181,44 @@ public class TdlibUi extends Handler {
       return;
     }
 
+    if (messageThread == null && messageTopicId == null && !onlyScheduled && shareItem == null && voiceChatInvitation == null && forceDraft == null && filter == null &&
+      (options & (CHAT_OPTION_VIEW_AS_MESSAGES | CHAT_OPTION_START_CALL)) == 0 && (params == null || StringUtils.isEmpty(params.searchQuery)) &&
+      ForumTopics.needTopicsList(tdlib, chat)) {
+      // TGX Mod: forum chats open as a list of topics
+      final boolean specificMessage = params != null && params.highlightSet && params.highlightMessageId != null &&
+        (params.highlightMode == MessagesManager.HIGHLIGHT_MODE_NORMAL || params.highlightMode == MessagesManager.HIGHLIGHT_MODE_NORMAL_NEXT);
+      if (specificMessage) {
+        // Open the topic the message belongs to
+        tdlib.send(new TdApi.GetMessage(chat.id, params.highlightMessageId.getMessageId()), (message, error) -> {
+          if (message != null && message.topicId != null && message.topicId.getConstructor() == TdApi.MessageTopicForum.CONSTRUCTOR) {
+            params.messageTopicId = message.topicId;
+            params.options |= CHAT_OPTION_KEEP_STACK;
+          } else {
+            params.options |= CHAT_OPTION_VIEW_AS_MESSAGES;
+          }
+          openChat(context, chat, params);
+        });
+        return;
+      }
+      ForumTopics.openTopicsList(context, chat, chatList);
+      if (after != null) {
+        after.runWithLong(chat.id);
+      }
+      if (params != null) {
+        params.onDone();
+      }
+      return;
+    }
+
     final int highlightMode;
     final MessageId highlightMessageId;
     if (params != null && params.highlightSet) {
       highlightMode = params.highlightMode;
       highlightMessageId = params.highlightMessageId;
+    } else if (messageThread == null && messageTopicId != null && messageTopicId.getConstructor() == TdApi.MessageTopicForum.CONSTRUCTOR) {
+      // TGX Mod: chat-level read state does not apply to a forum topic
+      highlightMode = MessagesManager.HIGHLIGHT_MODE_NONE;
+      highlightMessageId = null;
     } else {
       highlightMode = MessagesManager.getAnchorHighlightMode(tdlib.id(), chat, messageThread);
       highlightMessageId = MessagesManager.getAnchorMessageId(tdlib.id(), chat, messageThread, highlightMode);
@@ -2176,7 +2227,7 @@ public class TdlibUi extends Handler {
     final boolean isSelfChat = tdlib.isSelfChat(chat.id);
 
     boolean doneOpen = false;
-    if (context instanceof MessagesController && !((MessagesController) context).inPreviewMode() && ((MessagesController) context).compareChat(chat.id, messageThread, onlyScheduled)) {
+    if (context instanceof MessagesController && !((MessagesController) context).inPreviewMode() && ((MessagesController) context).compareChat(chat.id, messageThread, onlyScheduled) && ((MessagesController) context).isSameForumTopic(messageTopicId)) {
       boolean doneSomething = false;
       if (highlightMode == MessagesManager.HIGHLIGHT_MODE_NORMAL && highlightMessageId != null) {
         ((MessagesController) context).highlightMessage(highlightMessageId, urlOpenParameters);
@@ -2208,7 +2259,7 @@ public class TdlibUi extends Handler {
     }
     if (!doneOpen && highlightMode == MessagesManager.HIGHLIGHT_MODE_NORMAL && highlightMessageId != null) {
       ViewController<?> c = context.context().navigation().getCurrentStackItem();
-      if (c != null && c != context && c.tdlib() == context.tdlib() && c instanceof MessagesController && !((MessagesController) c).inPreviewMode() && ((MessagesController) c).compareChat(chat.id, messageThread, onlyScheduled)) {
+      if (c != null && c != context && c.tdlib() == context.tdlib() && c instanceof MessagesController && !((MessagesController) c).inPreviewMode() && ((MessagesController) c).compareChat(chat.id, messageThread, onlyScheduled) && ((MessagesController) c).isSameForumTopic(messageTopicId)) {
         ((MessagesController) c).highlightMessage(highlightMessageId, urlOpenParameters);
         doneOpen = true;
       }
@@ -2281,6 +2332,9 @@ public class TdlibUi extends Handler {
       arguments = new MessagesController.Arguments(chatList, chat, messageThread, messageTopicId, highlightMessageId, highlightMode, filter);
     } else {
       arguments = new MessagesController.Arguments(tdlib, chatList, chat, messageThread, messageTopicId, filter);
+    }
+    if (params != null && params.forumTopic != null) {
+      arguments.forumTopic(params.forumTopic);
     }
     controller.setArguments(arguments
       .setScheduled(onlyScheduled)

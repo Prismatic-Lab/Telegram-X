@@ -323,6 +323,8 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
           v.getToggler().setRadioEnabled(Settings.instance().needPreviewChatOnHold(), isUpdate);
         } else if (itemId == R.id.btn_sendByEnter) {
           v.getToggler().setRadioEnabled(Settings.instance().needSendByEnter(), isUpdate);
+        } else if (itemId == R.id.btn_forumTopicsList) {
+          v.getToggler().setRadioEnabled(ForumTopics.isEnabled(), isUpdate);
         } else if (itemId == R.id.btn_toggleNewSetting || itemId == R.id.btn_wrapCodeBlocks) {
           updateSettingView(v, item, isUpdate);
         } else if (itemId == R.id.btn_miniApps) {
@@ -415,6 +417,8 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
 
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_chatListStyle, 0, R.string.ChatListStyle));
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_forumTopicsList, 0, R.string.ForumTopicsList));
 
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_chatBackground, 0, R.string.Wallpaper));
@@ -1262,6 +1266,8 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       Settings.instance().setNeedHideChatKeyboardOnScroll(adapter.toggleView(v));
     } else if (viewId == R.id.btn_sendByEnter) {
       Settings.instance().setNeedSendByEnter(adapter.toggleView(v));
+    } else if (viewId == R.id.btn_forumTopicsList) {
+      ForumTopics.setEnabled(adapter.toggleView(v));
     } else if (viewId == R.id.btn_toggleNewSetting || viewId == R.id.btn_wrapCodeBlocks) {
       handleSettingClick(v, adapter);
     } else if (viewId == R.id.btn_miniApps) {

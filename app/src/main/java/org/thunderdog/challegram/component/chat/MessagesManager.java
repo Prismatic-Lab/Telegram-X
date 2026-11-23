@@ -752,7 +752,11 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   }
 
   private void initPinned (long chatId, int initialLoadCount, int loadCount) {
-    this.pinnedMessages = new MessageListManager(tdlib, initialLoadCount, loadCount, pinnedMessageListener, chatId, 0, null, null, null, new TdApi.SearchMessagesFilterPinned());
+    initPinned(chatId, null, initialLoadCount, loadCount);
+  }
+
+  private void initPinned (long chatId, @Nullable TdApi.MessageTopic topicId, int initialLoadCount, int loadCount) {
+    this.pinnedMessages = new MessageListManager(tdlib, initialLoadCount, loadCount, pinnedMessageListener, chatId, 0, topicId, null, null, new TdApi.SearchMessagesFilterPinned());
     this.pinnedMessages.addMaxMessageIdListener(pinnedMessageAvailabilityChangeListener);
     this.pinnedMessages.addChangeListener(new MessageListManager.ChangeListener() {
       @Override
@@ -768,6 +772,10 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     tdlib.settings().addPinnedMessageDismissListener(this);
   }
 
+  public void setForumTopic (@Nullable TdApi.ForumTopic forumTopic) {
+    loader.setForumTopic(forumTopic);
+  }
+
   public void openChat (TdApi.Chat chat, @Nullable ThreadInfo messageThread, @Nullable TdApi.MessageTopic topicId, TdApi.SearchMessagesFilter filter, MessagesController context, boolean areScheduled, boolean needPinnedMessages) {
     if (chat.id != 0) {
       if (Log.isEnabled(Log.TAG_MESSAGES_LOADER)) {
@@ -777,7 +785,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       // readOneShot = true;
     }
     if (chat.id != 0 && messageThread == null && !areScheduled && needPinnedMessages) {
-      initPinned(chat.id, 10, 50);
+      initPinned(chat.id, topicId != null && topicId.getConstructor() == TdApi.MessageTopicForum.CONSTRUCTOR ? topicId : null, 10, 50);
     } else {
       this.pinnedMessages = null;
     }

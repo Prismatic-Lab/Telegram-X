@@ -35,8 +35,10 @@ import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccentColor;
 import org.thunderdog.challegram.telegram.TdlibChatList;
 import org.thunderdog.challegram.telegram.TdlibCounter;
+import org.thunderdog.challegram.telegram.TdlibForumTopicManager;
 import org.thunderdog.challegram.telegram.TdlibStatusManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.ui.ForumTopics;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.PorterDuffColorId;
 import org.thunderdog.challegram.theme.Theme;
@@ -1325,7 +1327,7 @@ public class TGChat implements TdlibStatusManager.HelperTarget, ContentPreview.R
 
   private void setPrefix () {
     if ((flags & FLAG_HAS_PREFIX) != 0) {
-      final String prefix;
+      String prefix;
       boolean needSuffix = true;
       if (showDraft()) {
         TdApi.DraftMessage draftMessage = chat.draftMessage;
@@ -1342,6 +1344,13 @@ public class TGChat implements TdlibStatusManager.HelperTarget, ContentPreview.R
           tdlib.senderName(chat.lastMessage, false, listMode == Settings.CHAT_MODE_2LINE);
       } else {
         prefix = null;
+      }
+      if (!showDraft()) {
+        // TGX Mod: "Topic › Sender" in forum chats
+        String topicName = forumTopicName();
+        if (!StringUtils.isEmpty(topicName)) {
+          prefix = StringUtils.isEmpty(prefix) ? topicName : topicName + " \u203A " + prefix;
+        }
       }
 
       if (!StringUtils.isEmpty(prefix)) {
@@ -1369,6 +1378,44 @@ public class TGChat implements TdlibStatusManager.HelperTarget, ContentPreview.R
       this.prefix = null;
     }
     layoutText();
+  }
+
+  // TGX Mod: forum topic name of the last message
+
+  private int requestedForumTopicId;
+
+  @Nullable
+  private String forumTopicName () {
+    final TdApi.Chat chat = this.chat;
+    if (chat == null || chat.lastMessage == null || !ForumTopics.isEnabled() || !tdlib.isForum(chat.id)) {
+      return null;
+    }
+    final TdApi.MessageTopic topicId = chat.lastMessage.topicId;
+    if (topicId == null || topicId.getConstructor() != TdApi.MessageTopicForum.CONSTRUCTOR) {
+      return null;
+    }
+    final int forumTopicId = ((TdApi.MessageTopicForum) topicId).forumTopicId;
+    final TdlibForumTopicManager.Key key = new TdlibForumTopicManager.Key(chat.id, forumTopicId);
+    TdlibForumTopicManager.Entry entry = tdlib.topics().find(key);
+    if (entry != null && entry.value != null && entry.value.info != null) {
+      return entry.value.info.name;
+    }
+    if (requestedForumTopicId != forumTopicId) {
+      requestedForumTopicId = forumTopicId;
+      tdlib.topics().findOrRequest(key, (foundEntry, inPlace) -> {
+        if (!inPlace && foundEntry.value != null) {
+          tdlib.ui().post(() -> {
+            TdApi.Message lastMessage = this.chat != null ? this.chat.lastMessage : null;
+            if (lastMessage != null && lastMessage.topicId != null && lastMessage.topicId.getConstructor() == TdApi.MessageTopicForum.CONSTRUCTOR &&
+              ((TdApi.MessageTopicForum) lastMessage.topicId).forumTopicId == forumTopicId) {
+              setPrefix();
+              currentViews.invalidate();
+            }
+          });
+        }
+      });
+    }
+    return null;
   }
 
   private void setTextValue (@StringRes int resId) {

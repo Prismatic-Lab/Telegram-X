@@ -2498,6 +2498,21 @@
   <string name="EventLogForumTopicHiddenYou">You made topic %1$s hidden</string>
   <string name="EventLogForumTopicUnhidden">%1$s made topic %2$s visible</string>
   <string name="EventLogForumTopicUnhiddenYou">You made topic %1$s visible</string>
+  <string name="ForumTopics">Topics</string>
+  <string name="ForumTopicsList">Show forum topics list</string>
+  <string name="ViewAsMessages">View as messages</string>
+  <string name="ViewAsTopics">View as topics</string>
+  <string name="CreateTopic">Create topic</string>
+  <string name="NewTopic">New topic</string>
+  <string name="TopicName">Topic name</string>
+  <string name="EditTopic">Edit topic</string>
+  <string name="CloseTopic">Close topic</string>
+  <string name="ReopenTopic">Reopen topic</string>
+  <string name="DeleteTopic">Delete topic</string>
+  <string name="DeleteTopicConfirm">Delete topic **%1$s**? All messages in this topic will be deleted.</string>
+  <string name="TopicClosedInput">The topic is closed</string>
+  <string name="NoTopics">No topics here yet</string>
+  <string name="TopicsBotInfo">Bot info</string>
 
   <string name="EventLogMutedNewParticipants">%1$s muted new video chat participants</string>
   <string name="EventLogUnmutedNewParticipants">%1$s allowed new video chat participants to speak</string>
