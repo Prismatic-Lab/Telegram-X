@@ -8398,6 +8398,13 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           TdApi.MessageAnimation messageAnimation = (TdApi.MessageAnimation) content;
           return new TGMessageMedia(context, msg, messageAnimation, messageAnimation.caption);
         }
+        case TdApi.MessagePaidMedia.CONSTRUCTOR: {
+          TdApi.MessagePaidMedia messagePaidMedia = (TdApi.MessagePaidMedia) content;
+          if (TGMessageMedia.isSupportedPaidMedia(messagePaidMedia)) {
+            return new TGMessageMedia(context, msg, messagePaidMedia);
+          }
+          break;
+        }
         case TdApi.MessageVideoNote.CONSTRUCTOR: {
           return new TGMessageVideo(context, msg, nonNull(((TdApi.MessageVideoNote) content).videoNote), ((TdApi.MessageVideoNote) content).isViewed);
         }
@@ -8615,7 +8622,6 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         case TdApi.MessageSuggestBirthdate.CONSTRUCTOR:
         case TdApi.MessageUsersShared.CONSTRUCTOR:
         case TdApi.MessageChatShared.CONSTRUCTOR:
-        case TdApi.MessagePaidMedia.CONSTRUCTOR:
         case TdApi.MessageGiveawayPrizeStars.CONSTRUCTOR:
         case TdApi.MessageGift.CONSTRUCTOR:
         case TdApi.MessageUpgradedGift.CONSTRUCTOR:

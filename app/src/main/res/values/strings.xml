@@ -1952,6 +1952,14 @@
   <string name="AttachPhotoExpired">Expired photo</string>
   <string name="AttachVideoExpired">Expired video</string>
   <string name="PaidMedia">Paid content</string>
+  <string name="PaidMediaUnlockConfirm_one">Unlock this content for %1$s Star?</string>
+  <string name="PaidMediaUnlockConfirm_other">Unlock this content for %1$s Stars?</string>
+  <string name="PaidMediaUnlockForX_one">Unlock for %1$s Star</string>
+  <string name="PaidMediaUnlockForX_other">Unlock for %1$s Stars</string>
+  <string name="PaidMediaUnlocked">Content unlocked</string>
+  <string name="PaidMediaPaymentFailed">Payment was not completed</string>
+  <string name="PaidMediaNotEnoughStars">Not enough Stars to unlock this content</string>
+  <string name="PaidMediaUnsupportedPayment">This content can\'t be unlocked in this app</string>
   <string name="AttachVoiceNoteExpired">Expired voice message</string>
   <string name="AttachVideoNoteExpired">Expired video message</string>
   <string name="SendByEnter">Send with Enter</string>

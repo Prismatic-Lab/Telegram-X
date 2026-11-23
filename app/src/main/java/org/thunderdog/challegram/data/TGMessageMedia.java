@@ -20,6 +20,7 @@ import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewParent;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -34,12 +35,15 @@ import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.mediaview.MediaViewController;
 import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
+import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.MessageEditMediaPending;
 import org.thunderdog.challegram.theme.ColorId;
+import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
+import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.util.text.Highlight;
 import org.thunderdog.challegram.util.text.Text;
@@ -47,6 +51,7 @@ import org.thunderdog.challegram.util.text.TextEntity;
 import org.thunderdog.challegram.util.text.TextWrapper;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.MathUtils;
@@ -89,6 +94,277 @@ public class TGMessageMedia extends TGMessage {
     MediaWrapper mediaWrapper = new MediaWrapper(context(), tdlib, document, msg.chatId, msg.id, this, true);
     mediaWrapper.setViewProvider(currentViews);
     init(mediaWrapper, caption);
+  }
+
+  // Paid media (TdApi.MessagePaidMedia)
+
+  private @Nullable TdApi.MessagePaidMedia paidMedia;
+  private @Nullable MediaWrapper[] paidMediaWrappers;
+  private boolean paidMediaLocked;
+  private boolean paidMediaPaymentInProgress;
+  private String paidMediaStarCountText;
+  private int paidMediaStarCountWidth;
+
+  public static boolean isSupportedPaidMedia (@Nullable TdApi.MessagePaidMedia paidMedia) {
+    if (paidMedia == null || paidMedia.media == null) {
+      return false;
+    }
+    for (TdApi.PaidMedia media : paidMedia.media) {
+      if (media == null) {
+        continue;
+      }
+      switch (media.getConstructor()) {
+        case TdApi.PaidMediaPreview.CONSTRUCTOR:
+        case TdApi.PaidMediaPhoto.CONSTRUCTOR:
+        case TdApi.PaidMediaVideo.CONSTRUCTOR:
+          return true;
+        case TdApi.PaidMediaUnsupported.CONSTRUCTOR:
+          break;
+        default:
+          Td.assertPaidMedia_a2956719();
+          break;
+      }
+    }
+    return false;
+  }
+
+  protected TGMessageMedia (MessagesManager context, TdApi.Message msg, @NonNull TdApi.MessagePaidMedia paidMedia) {
+    super(context, msg);
+    this.paidMedia = paidMedia;
+    this.paidMediaWrappers = new MediaWrapper[paidMedia.media.length];
+    boolean hasLockedMedia = false;
+    for (int i = 0; i < paidMedia.media.length; i++) {
+      MediaWrapper wrapper = createPaidMediaWrapper(msg.chatId, msg.id, paidMedia.media[i], i);
+      paidMediaWrappers[i] = wrapper;
+      if (wrapper == null) {
+        continue;
+      }
+      if (wrapper.isPaidPreview()) {
+        hasLockedMedia = true;
+      }
+      if (mosaicWrapper == null) {
+        mosaicWrapper = new MosaicWrapper(wrapper, this);
+      } else {
+        mosaicWrapper.addItem(wrapper, true);
+      }
+    }
+    if (mosaicWrapper == null) {
+      throw new UnsupportedOperationException(paidMedia.toString());
+    }
+    this.paidMediaLocked = hasLockedMedia;
+    this.paidMediaStarCountText = Strings.buildCounter(paidMedia.starCount);
+    this.paidMediaStarCountWidth = (int) U.measureText(paidMediaStarCountText, Paints.whiteMediumPaint(14f, false, true));
+    updateRounds();
+    setCaption(paidMedia.caption, msg.id);
+    checkCommonCaption();
+    checkHasEditedMedia();
+  }
+
+  private @Nullable MediaWrapper createPaidMediaWrapper (long chatId, long messageId, @Nullable TdApi.PaidMedia media, int index) {
+    if (media == null) {
+      return null;
+    }
+    MediaWrapper wrapper;
+    switch (media.getConstructor()) {
+      case TdApi.PaidMediaPreview.CONSTRUCTOR: {
+        wrapper = new MediaWrapper(context(), tdlib, (TdApi.PaidMediaPreview) media, chatId, messageId, this);
+        // Locked previews have no files, so give each of them a unique receiver key
+        wrapper.setReceiverKeyOverride(-(index + 1));
+        break;
+      }
+      case TdApi.PaidMediaPhoto.CONSTRUCTOR: {
+        TdApi.PaidMediaPhoto paidPhoto = (TdApi.PaidMediaPhoto) media;
+        if (paidPhoto.photo == null) {
+          return null;
+        }
+        wrapper = new MediaWrapper(context(), tdlib, paidPhoto.photo, chatId, messageId, this, false);
+        break;
+      }
+      case TdApi.PaidMediaVideo.CONSTRUCTOR: {
+        TdApi.PaidMediaVideo paidVideo = (TdApi.PaidMediaVideo) media;
+        if (paidVideo.video == null) {
+          return null;
+        }
+        wrapper = new MediaWrapper(context(), tdlib, paidVideo.video, paidVideo.cover, chatId, messageId, this, false);
+        break;
+      }
+      case TdApi.PaidMediaUnsupported.CONSTRUCTOR:
+        return null;
+      default:
+        Td.assertPaidMedia_a2956719();
+        return null;
+    }
+    wrapper.setViewProvider(currentViews);
+    wrapper.setOnClickListener(this::onPaidMediaClick);
+    return wrapper;
+  }
+
+  public boolean isPaidMedia () {
+    return paidMedia != null;
+  }
+
+  public boolean isPaidMediaLocked () {
+    return paidMedia != null && paidMediaLocked;
+  }
+
+  private static @Nullable TdApi.FormattedText textOrCaption (@Nullable TdApi.MessageContent content) {
+    if (content != null && content.getConstructor() == TdApi.MessagePaidMedia.CONSTRUCTOR) {
+      return ((TdApi.MessagePaidMedia) content).caption;
+    }
+    return Td.textOrCaption(content);
+  }
+
+  private boolean onPaidMediaClick (View view, MediaWrapper wrapper) {
+    if (paidMedia == null || paidMediaWrappers == null) {
+      return false;
+    }
+    if (wrapper.isPaidPreview()) {
+      requestPaidMediaPurchase();
+      return true;
+    }
+    openPaidMedia(wrapper);
+    return true;
+  }
+
+  private void openPaidMedia (MediaWrapper target) {
+    if (paidMedia == null || paidMediaWrappers == null) {
+      return;
+    }
+    TdApi.Message message = getMessage(msg.id);
+    if (message == null) {
+      message = msg;
+    }
+    List<MediaItem> items = new ArrayList<>();
+    int currentIndex = 0;
+    for (int i = 0; i < paidMedia.media.length && i < paidMediaWrappers.length; i++) {
+      TdApi.PaidMedia media = paidMedia.media[i];
+      if (media == null || paidMediaWrappers[i] == null) {
+        continue;
+      }
+      MediaItem item;
+      switch (media.getConstructor()) {
+        case TdApi.PaidMediaPhoto.CONSTRUCTOR: {
+          TdApi.PaidMediaPhoto paidPhoto = (TdApi.PaidMediaPhoto) media;
+          item = new MediaItem(context(), tdlib, message.chatId, message.id, paidPhoto.photo);
+          break;
+        }
+        case TdApi.PaidMediaVideo.CONSTRUCTOR: {
+          TdApi.PaidMediaVideo paidVideo = (TdApi.PaidMediaVideo) media;
+          item = new MediaItem(context(), tdlib, paidVideo.video, null, paidVideo.cover, paidMedia.caption, true);
+          break;
+        }
+        default:
+          continue;
+      }
+      item.setCaption(paidMedia.caption);
+      item.setSourceMessage(message);
+      if (paidMediaWrappers[i] == target) {
+        currentIndex = items.size();
+      }
+      items.add(item);
+    }
+    if (!items.isEmpty()) {
+      MediaViewController.openFromMessageItems(this, items, currentIndex);
+    }
+  }
+
+  private void requestPaidMediaPurchase () {
+    if (paidMedia == null || paidMediaPaymentInProgress) {
+      return;
+    }
+    if (isNotSent() || isEventLog() || isSponsoredMessage() || isScheduled()) {
+      return;
+    }
+    final long chatId = msg.chatId;
+    final long messageId = msg.id;
+    final TdApi.InputInvoice inputInvoice = new TdApi.InputInvoiceMessage(chatId, messageId);
+    paidMediaPaymentInProgress = true;
+    tdlib.send(new TdApi.GetPaymentForm(inputInvoice, null), (paymentForm, error) -> runOnUiThreadOptional(() -> {
+      paidMediaPaymentInProgress = false;
+      if (error != null) {
+        UI.showError(error);
+        return;
+      }
+      if (paymentForm.type == null || paymentForm.type.getConstructor() != TdApi.PaymentFormTypeStars.CONSTRUCTOR) {
+        UI.showToast(R.string.PaidMediaUnsupportedPayment, Toast.LENGTH_SHORT);
+        return;
+      }
+      final long starCount = ((TdApi.PaymentFormTypeStars) paymentForm.type).starCount;
+      final long paymentFormId = paymentForm.id;
+      ViewController<?> c = controller();
+      if (c == null || c.isDestroyed()) {
+        return;
+      }
+      c.showConfirm(
+        Lang.pluralBold(R.string.PaidMediaUnlockConfirm, starCount),
+        Lang.plural(R.string.PaidMediaUnlockForX, starCount),
+        R.drawable.baseline_premium_star_24,
+        ViewController.OptionColor.NORMAL,
+        () -> sendPaidMediaPayment(inputInvoice, paymentFormId)
+      );
+    }));
+  }
+
+  private void sendPaidMediaPayment (TdApi.InputInvoice inputInvoice, long paymentFormId) {
+    if (paidMediaPaymentInProgress) {
+      return;
+    }
+    paidMediaPaymentInProgress = true;
+    // Telegram Stars payments need no order info, shipping option, credentials or tip
+    tdlib.send(new TdApi.SendPaymentForm(inputInvoice, paymentFormId, "", "", null, 0), (paymentResult, error) -> runOnUiThreadOptional(() -> {
+      paidMediaPaymentInProgress = false;
+      if (error != null) {
+        String errorText = TD.errorText(error);
+        if (errorText != null && errorText.contains("BALANCE_TOO_LOW")) {
+          UI.showToast(R.string.PaidMediaNotEnoughStars, Toast.LENGTH_LONG);
+        } else {
+          UI.showError(error);
+        }
+        return;
+      }
+      if (paymentResult.success) {
+        // TDLib sends updateMessageContent with the purchased media,
+        // which re-creates this message (see isSupportedMessageContent)
+        UI.showToast(R.string.PaidMediaUnlocked, Toast.LENGTH_SHORT);
+      } else {
+        UI.showToast(R.string.PaidMediaPaymentFailed, Toast.LENGTH_SHORT);
+      }
+    }));
+  }
+
+  private void drawPaidMediaOverlay (MessageView view, Canvas c, int startX, int startY) {
+    if (!isPaidMediaLocked() || mosaicWrapper == null || paidMediaStarCountText == null) {
+      return;
+    }
+    final int mosaicWidth = mosaicWrapper.getWidth();
+    final int mosaicHeight = mosaicWrapper.getHeight();
+    if (mosaicWidth <= 0 || mosaicHeight <= 0) {
+      return;
+    }
+    android.graphics.drawable.Drawable lockIcon = view.getSparseDrawable(R.drawable.baseline_lock_16, ColorId.white);
+    android.graphics.drawable.Drawable starIcon = view.getSparseDrawable(R.drawable.baseline_premium_star_16, ColorId.white);
+    final int iconSize = Screen.dp(16f);
+    final int spacing = Screen.dp(4f);
+    final int paddingHorizontal = Screen.dp(10f);
+    final int pillHeight = Screen.dp(30f);
+
+    int pillContentWidth = iconSize + spacing + iconSize + spacing / 2 + paidMediaStarCountWidth;
+    int pillWidth = pillContentWidth + paddingHorizontal * 2;
+
+    float centerX = startX + mosaicWidth / 2f;
+    float centerY = startY + mosaicHeight / 2f;
+
+    RectF rectF = Paints.getRectF();
+    rectF.set(centerX - pillWidth / 2f, centerY - pillHeight / 2f, centerX + pillWidth / 2f, centerY + pillHeight / 2f);
+    c.drawRoundRect(rectF, pillHeight / 2f, pillHeight / 2f, Paints.fillingPaint(0x66000000));
+
+    float x = rectF.left + paddingHorizontal;
+    Drawables.draw(c, lockIcon, x, centerY - iconSize / 2f, Paints.whitePorterDuffPaint());
+    x += iconSize + spacing;
+    Drawables.draw(c, starIcon, x, centerY - iconSize / 2f, Paints.whitePorterDuffPaint());
+    x += iconSize + spacing / 2;
+    android.text.TextPaint textPaint = Paints.whiteMediumPaint(14f, false, false);
+    c.drawText(paidMediaStarCountText, x, centerY + Screen.dp(5f), textPaint);
   }
 
   protected TGMessageMedia (MessagesManager context, TdApi.SponsoredMessage sponsoredMessage, long inChatId, boolean isBelowAllMessages) {
@@ -156,7 +432,7 @@ public class TGMessageMedia extends TGMessage {
   private MosaicWrapper mosaicWrapper;
 
   private void init (MediaWrapper wrapper, TdApi.FormattedText caption) {
-    if (msg.chatId == 0) {
+    if (msg.chatId == 0 && msg.content.getConstructor() == TdApi.MessagePhoto.CONSTRUCTOR) {
       wrapper.loadStubPhoto(((TdApi.MessagePhoto) msg.content).photo.sizes[0].type);
     }
     mosaicWrapper = new MosaicWrapper(wrapper, this);
@@ -263,7 +539,7 @@ public class TGMessageMedia extends TGMessage {
           if (caption != null) {
             hasEditedText = true;
           } else {
-            caption = Td.textOrCaption(captionMessage.content);
+            caption = textOrCaption(captionMessage.content);
           }
           captionMessageId = captionMessage.id;
         }
@@ -272,7 +548,7 @@ public class TGMessageMedia extends TGMessage {
         if (caption != null) {
           hasEditedText = true;
         } else {
-          caption = Td.textOrCaption(msg.content);
+          caption = textOrCaption(msg.content);
         }
         captionMessageId = msg.id;
       }
@@ -403,6 +679,13 @@ public class TGMessageMedia extends TGMessage {
 
   @Override
   protected boolean isSupportedMessageContent (TdApi.Message message, TdApi.MessageContent messageContent) {
+    if (paidMedia != null ||
+      message.content.getConstructor() == TdApi.MessagePaidMedia.CONSTRUCTOR ||
+      messageContent.getConstructor() == TdApi.MessagePaidMedia.CONSTRUCTOR) {
+      // Paid media content changes (e.g. after a purchase) always re-create the message,
+      // so locked previews get replaced with the real photos and videos
+      return false;
+    }
     return isAcceptedMessageContent(messageContent) && isAcceptedMessageContent(message.content);
   }
 
@@ -590,6 +873,7 @@ public class TGMessageMedia extends TGMessage {
     if (clipped) {
       ViewSupport.restoreClipPath(c, saveCount);
     }
+    drawPaidMediaOverlay(view, c, startX, startY);
 
     if (timerText != null) {
       MediaWrapper mediaWrapper = mosaicWrapper.getSingularItem();
@@ -924,6 +1208,9 @@ public class TGMessageMedia extends TGMessage {
 
 
   private boolean updateMediaWrapperImpl (long chatId, long messageId, @Nullable TdApi.MessageContent content, @Nullable MessageEditMediaPending pending) {
+    if (paidMedia != null || (content != null && content.getConstructor() == TdApi.MessagePaidMedia.CONSTRUCTOR)) {
+      return false;
+    }
     final MediaWrapper wrapper = mosaicWrapper.findMediaWrapperByMessageId(messageId);
 
     if (wrapper == null) {

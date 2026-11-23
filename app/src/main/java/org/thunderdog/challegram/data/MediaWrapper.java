@@ -310,6 +310,61 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     updateDuration();
   }
 
+  // Paid media preview (TdApi.PaidMediaPreview): media is hidden until it is purchased
+
+  private boolean isPaidPreview;
+  private int receiverKeyOverride;
+
+  public MediaWrapper (BaseActivity context, Tdlib tdlib, @NonNull TdApi.PaidMediaPreview preview, long chatId, long messageId, @Nullable TGMessage source) {
+    this.tdlib = tdlib;
+    this.source = source;
+    this.sourceMessageId = messageId;
+    this.useHotStuff = false;
+    this.isPaidPreview = true;
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      this.path = new Path();
+    }
+
+    this.fileProgress = new FileProgressComponent(context, tdlib, preview.duration > 0 ? TdlibFilesManager.DOWNLOAD_FLAG_VIDEO : TdlibFilesManager.DOWNLOAD_FLAG_PHOTO, false, chatId, messageId);
+    this.fileProgress.setSimpleListener(this);
+
+    if (preview.minithumbnail != null) {
+      this.miniThumbnail = new ImageFileLocal(preview.minithumbnail);
+      this.miniThumbnail.setScaleType(ImageFile.CENTER_CROP);
+    } else {
+      this.miniThumbnail = null;
+    }
+    this.previewFile = null;
+
+    this.contentWidth = preview.width;
+    this.contentHeight = preview.height;
+    if (contentWidth <= 0 || contentHeight <= 0) {
+      contentWidth = contentHeight = Screen.dp(100f);
+    }
+
+    if (preview.duration > 0) {
+      this.duration = Strings.buildDuration(preview.duration);
+      this.durationShort = null;
+      TextPaint paint = Paints.whiteMediumPaint(13f, false, true);
+      this.durationWidthFull = (int) U.measureText(this.duration, paint);
+      this.durationWidthShort = 0;
+      this.durationTrimmed = this.duration;
+      this.durationWidth = this.durationWidthFull;
+    }
+
+    setHideLoader(true);
+    setRevealOnTap(true);
+  }
+
+  public boolean isPaidPreview () {
+    return isPaidPreview;
+  }
+
+  public void setReceiverKeyOverride (int receiverKey) {
+    this.receiverKeyOverride = receiverKey;
+  }
+
   public MediaWrapper (BaseActivity context, Tdlib tdlib, @NonNull TdApi.MessageAnimation animation, long chatId, long messageId, @Nullable TGMessage source, boolean useHotStuff) {
     this(context, tdlib, animation.animation, chatId, messageId, source, useHotStuff, false, false, null);
     setRevealOnTap(animation.hasSpoiler);
@@ -1238,6 +1293,10 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     if (onClickListener != null && onClickListener.onClick(view, this)) {
       return true;
     }
+    if (isPaidPreview) {
+      // Locked paid media is never revealed locally, it must be purchased first
+      return true;
+    }
     if (revealOnTap && spoilerOverlayVisible.getValue()) {
       AtomicBoolean startedPlaying = new AtomicBoolean(false);
       Runnable revealSpoiler = () -> {
@@ -1479,6 +1538,9 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
   // Mosaic
 
   public int getReceiverKey () {
+    if (receiverKeyOverride != 0) {
+      return receiverKeyOverride;
+    }
     return fileProgress != null && fileProgress.getFile() != null ? fileProgress.getFile().id : previewSize != null ? previewSize.photo.id : 0;
   }
 

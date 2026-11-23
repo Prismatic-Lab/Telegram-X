@@ -8432,6 +8432,31 @@ public class MediaViewController extends ViewController<MediaViewController.Args
     openWithArgs(context, args);
   }
 
+  public static void openFromMessageItems (TGMessage message, List<MediaItem> items, int currentIndex) {
+    ViewController<?> context = message.controller();
+    if (context.isStackLocked() || items == null || items.isEmpty()) {
+      return;
+    }
+
+    for (MediaItem item : items) {
+      item.setSourceMessage(message);
+    }
+
+    MediaStack stack = new MediaStack(context.context(), context.tdlib());
+    stack.set(Math.max(0, Math.min(currentIndex, items.size() - 1)), items);
+
+    Args args = new Args(context, MODE_MESSAGES, stack);
+    args.noLoadMore = true;
+    args.forceThumbs = items.size() > 1;
+    args.areOnlyScheduled = message.isScheduled();
+    if (context instanceof MediaCollectorDelegate) {
+      ((MediaCollectorDelegate) context).modifyMediaArguments(message, args);
+    }
+    args.setTopicId(message.messagesController().getMessageTopicId());
+
+    openWithArgs(context, args);
+  }
+
   public static void openFromMessage (TGMessageText msg) {
     ViewController<?> context = msg.controller();
     if (context.isStackLocked()) {
