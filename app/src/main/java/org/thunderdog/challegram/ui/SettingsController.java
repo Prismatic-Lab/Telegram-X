@@ -75,6 +75,7 @@ import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.unsorted.ModProfileFeatures;
 import org.thunderdog.challegram.unsorted.Size;
 import org.thunderdog.challegram.util.AppBuildInfo;
 import org.thunderdog.challegram.util.AppUpdater;
@@ -625,6 +626,15 @@ public class SettingsController extends ViewController<Void> implements
             int collectibleCount = Td.secondaryUsernamesCount(myUsernames);
             view.setData("@" + myUsernames.editableUsername + (collectibleCount != 0 ? " + " + Lang.pluralBold(R.string.xOtherUsernames, collectibleCount) : "")); // TODO multi-username support
           }
+        } else if (itemId == R.id.btn_personalChannel) {
+          if (userFull == null) {
+            view.setData(R.string.LoadingInformation);
+          } else if (userFull.personalChatId == 0) {
+            view.setData(R.string.PersonalChannelNone);
+          } else {
+            String title = tdlib.chatTitle(userFull.personalChatId);
+            view.setData(!StringUtils.isEmpty(title) ? title : Lang.getString(R.string.LoadingInformation));
+          }
         } else if (itemId == R.id.btn_peer_id) {
           view.setData(Strings.buildCounter(tdlib.myUserId(true)));
         } else if (itemId == R.id.btn_phone) {
@@ -664,6 +674,10 @@ public class SettingsController extends ViewController<Void> implements
     }
     items.add(new ListItem(ListItem.TYPE_SEPARATOR));
     items.add(new ListItem(ListItem.TYPE_INFO_MULTILINE, R.id.btn_bio, R.drawable.baseline_info_24, R.string.UserBio).setContentStrings(R.string.LoadingInformation, R.string.BioNone));
+    if (ModProfileFeatures.profileExtrasEnabled()) {
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR));
+      items.add(new ListItem(ListItem.TYPE_INFO_SETTING, R.id.btn_personalChannel, R.drawable.baseline_bullhorn_24, R.string.PersonalChannel).setContentStrings(R.string.LoadingInformation, R.string.PersonalChannelNone));
+    }
     items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
 
     TdApi.SuggestedAction[] actions = tdlib.getSuggestedActions();
@@ -933,7 +947,50 @@ public class SettingsController extends ViewController<Void> implements
       this.userFull = userFull;
       checkBirthdate();
       setBio(userFull.bio);
+      adapter.updateValuedSettingById(R.id.btn_personalChannel);
     });
+  }
+
+  private void showPersonalChannelOptions () {
+    tdlib.send(new TdApi.GetSuitablePersonalChats(), (chats, error) -> runOnUiThreadOptional(() -> {
+      if (error != null) {
+        UI.showError(error);
+        return;
+      }
+      final long currentChatId = userFull != null ? userFull.personalChatId : 0;
+      final long[] chatIds = chats.chatIds;
+      Options.Builder b = new Options.Builder();
+      b.title(Lang.getString(R.string.PersonalChannel));
+      if (chatIds.length == 0) {
+        b.info(Lang.getString(R.string.PersonalChannelNoSuitable));
+      }
+      for (int i = 0; i < chatIds.length; i++) {
+        String title = tdlib.chatTitle(chatIds[i]);
+        b.item(new OptionItem(i + 1, title != null ? title : Long.toString(chatIds[i]), chatIds[i] == currentChatId ? OptionColor.BLUE : OptionColor.NORMAL, R.drawable.baseline_bullhorn_24));
+      }
+      if (currentChatId != 0) {
+        b.item(new OptionItem(R.id.btn_personalChannelRemove, Lang.getString(R.string.PersonalChannelRemove), OptionColor.RED, R.drawable.baseline_delete_24));
+      }
+      b.item(new OptionItem(R.id.btn_cancel, Lang.getString(R.string.Cancel), OptionColor.NORMAL, R.drawable.baseline_cancel_24));
+      showOptions(b.build(), (v, id) -> {
+        long newChatId;
+        if (id == R.id.btn_personalChannelRemove) {
+          newChatId = 0;
+        } else if (id >= 1 && id <= chatIds.length) {
+          newChatId = chatIds[id - 1];
+        } else {
+          return true;
+        }
+        if (newChatId != currentChatId) {
+          tdlib.send(new TdApi.SetPersonalChat(newChatId), (ok, setError) -> {
+            if (setError != null) {
+              UI.showError(setError);
+            }
+          });
+        }
+        return true;
+      });
+    }));
   }
 
   private static ListItem newBirthdateItem () {
@@ -1225,6 +1282,8 @@ public class SettingsController extends ViewController<Void> implements
       navigateTo(c);
     } else if (viewId == R.id.btn_birthdate) {
       tdlib.ui().openBirthdateEditor(this, v, TdlibUi.BirthdateOpenOrigin.PROFILE);
+    } else if (viewId == R.id.btn_personalChannel) {
+      showPersonalChannelOptions();
     } else if (viewId == R.id.btn_peer_id) {
       long selfId = tdlib.myUserId(true);
       if (selfId == 0) return;
@@ -1438,7 +1497,10 @@ public class SettingsController extends ViewController<Void> implements
         newSuggestionItem(suggestedAction)
       );
     } else {
-      index = adapter.indexOfViewById(R.id.btn_bio);
+      index = adapter.indexOfViewById(R.id.btn_personalChannel);
+      if (index == -1) {
+        index = adapter.indexOfViewById(R.id.btn_bio);
+      }
       adapter.addItems(index + 2,
         new ListItem(ListItem.TYPE_SHADOW_TOP),
         newSuggestionItem(suggestedAction),

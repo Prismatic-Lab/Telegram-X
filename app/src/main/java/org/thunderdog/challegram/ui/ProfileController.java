@@ -74,6 +74,8 @@ import org.thunderdog.challegram.navigation.ActivityResultHandler;
 import org.thunderdog.challegram.navigation.BackHeaderButton;
 import org.thunderdog.challegram.component.dialogs.StoriesBarView;
 import org.thunderdog.challegram.mediaview.StoryViewController;
+import org.thunderdog.challegram.unsorted.ModProfileFeatures;
+import org.thunderdog.challegram.data.ContentPreview;
 import org.thunderdog.challegram.navigation.ComplexHeaderView;
 import org.thunderdog.challegram.navigation.ComplexRecyclerView;
 import org.thunderdog.challegram.navigation.CounterHeaderView;
@@ -1727,6 +1729,10 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     baseAdapter = new SettingsAdapter(this) {
       @Override
       protected void setChatData (ListItem item, int position, BetterChatView chatView) {
+        if (item.getId() == R.id.btn_personalChannel) {
+          setPersonalChannelData(item, chatView);
+          return;
+        }
         chatView.setEnabled(false);
         chatView.setChat((TGFoundChat) item.getData());
       }
@@ -1801,6 +1807,8 @@ public class ProfileController extends ViewController<ProfileController.Args> im
         } else if (itemId == R.id.btn_peer_id) {
           view.setName(getPeerTypeStringResourceId());
           view.setData(Strings.buildCounter(getPeerId()));
+        } else if (itemId == R.id.btn_profileMusic) {
+          setProfileMusicData(view);
         } else if (itemId == R.id.btn_birthdate) {
           view.setData(R.string.Birthdate);
           TdApi.Birthdate birthdate = userFull != null ? userFull.birthdate : null;
@@ -4753,6 +4761,246 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     });
   }
 
+  // TGX Mod: profile music, personal channel, gifts & stories tabs
+
+  private int profileAudioFileId;
+  private int profileAudioTotalCount;
+  private @Nullable List<TdApi.Message> profileAudioMessages;
+  private long personalChannelId;
+  private @Nullable TGFoundChat personalChannelItem;
+  private int personalChannelRequestId;
+
+  private boolean needProfileExtras () {
+    return ModProfileFeatures.profileExtrasEnabled() && !isEditing();
+  }
+
+  private void checkProfileExtras () {
+    if (isDestroyed() || isEditing() || baseAdapter == null) {
+      return;
+    }
+    switch (mode) {
+      case Mode.USER:
+      case Mode.SECRET:
+        if (user == null || userFull == null) {
+          return;
+        }
+        checkProfileMusic();
+        checkPersonalChannel();
+        checkProfileExtraTabs();
+        break;
+      case Mode.CHANNEL:
+        checkProfileExtraTabs();
+        break;
+    }
+  }
+
+  @Nullable
+  private TdApi.Audio getProfileMusic () {
+    return needProfileExtras() && userFull != null ? userFull.firstProfileAudio : null;
+  }
+
+  private void checkProfileMusic () {
+    final TdApi.Audio audio = getProfileMusic();
+    int foundIndex = baseAdapter.indexOfViewById(R.id.btn_profileMusic);
+    boolean hadMusic = foundIndex != -1;
+    boolean hasMusic = audio != null;
+    if (hadMusic != hasMusic) {
+      if (hadMusic) {
+        removeTopItem(foundIndex);
+      } else {
+        addTopItem(new ListItem(ListItem.TYPE_VALUED_SETTING, R.id.btn_profileMusic, R.drawable.baseline_music_note_24, R.string.Music), baseHeaderItemCount);
+      }
+    } else if (hasMusic) {
+      updateValuedItem(R.id.btn_profileMusic);
+    }
+    if (audio == null) {
+      profileAudioFileId = 0;
+      profileAudioMessages = null;
+      return;
+    }
+    if (profileAudioFileId == audio.audio.id && profileAudioMessages != null) {
+      return;
+    }
+    profileAudioFileId = audio.audio.id;
+    final long userId = user.id;
+    final int fileId = audio.audio.id;
+    tdlib.send(new TdApi.GetUserProfileAudios(userId, 0, 100), (audios, error) -> {
+      if (audios == null) {
+        return;
+      }
+      List<TdApi.Message> messages = new ArrayList<>(audios.audios.length);
+      for (TdApi.Audio a : audios.audios) {
+        messages.add(SharedProfileAudioController.newProfileAudioMessage(a));
+      }
+      runOnUiThreadOptional(() -> {
+        if (user != null && user.id == userId && profileAudioFileId == fileId) {
+          profileAudioMessages = messages;
+          profileAudioTotalCount = audios.totalCount;
+          updateValuedItem(R.id.btn_profileMusic);
+        }
+      });
+    });
+  }
+
+  private void setProfileMusicData (SettingView view) {
+    TdApi.Audio audio = getProfileMusic();
+    if (audio == null) {
+      view.setName(R.string.Music);
+      view.setData(R.string.LoadingInformation);
+      return;
+    }
+    String title = TD.getTitle(audio);
+    String subtitle = TD.getSubtitle(audio);
+    view.setName(StringUtils.isEmpty(subtitle) ? title : Lang.getString(R.string.format_profileMusicTrack, title, subtitle));
+    view.setData(profileAudioTotalCount > 1 ? Lang.plural(R.string.xProfileAudios, profileAudioTotalCount) : Lang.getString(R.string.ProfileMusic));
+  }
+
+  private void playProfileMusic () {
+    TdApi.Audio audio = getProfileMusic();
+    if (audio == null) {
+      return;
+    }
+    List<TdApi.Message> messages = profileAudioMessages;
+    TdApi.Message first = null;
+    if (messages != null) {
+      for (TdApi.Message message : messages) {
+        if (((TdApi.MessageAudio) message.content).audio.audio.id == audio.audio.id) {
+          first = message;
+          break;
+        }
+      }
+    }
+    if (first == null) {
+      first = SharedProfileAudioController.newProfileAudioMessage(audio);
+      messages = new ArrayList<>();
+      messages.add(first);
+    }
+    tdlib.context().player().playPauseMessage(tdlib, first, new SharedProfileAudioController.ProfileAudioPlayList(messages));
+  }
+
+  private void checkPersonalChannel () {
+    final long channelId = needProfileExtras() && userFull != null ? userFull.personalChatId : 0;
+    if (channelId == 0) {
+      int foundIndex = baseAdapter.indexOfViewById(R.id.btn_personalChannel);
+      if (foundIndex != -1) {
+        removeTopItem(foundIndex);
+      }
+      personalChannelId = 0;
+      personalChannelItem = null;
+      personalChannelRequestId++;
+      return;
+    }
+    if (personalChannelId == channelId) {
+      return;
+    }
+    personalChannelId = channelId;
+    final int requestId = ++personalChannelRequestId;
+    tdlib.chat(channelId, channel -> {
+      if (channel == null) {
+        return;
+      }
+      TdApi.Message lastMessage = channel.lastMessage;
+      if (lastMessage != null) {
+        runOnUiThreadOptional(() -> setPersonalChannel(requestId, channel, lastMessage));
+      } else {
+        tdlib.send(new TdApi.GetChatHistory(channelId, 0, 0, 1, false), (messages, error) -> {
+          TdApi.Message message = messages != null && messages.messages.length > 0 ? messages.messages[0] : null;
+          runOnUiThreadOptional(() -> setPersonalChannel(requestId, channel, message));
+        });
+      }
+    });
+  }
+
+  private void setPersonalChannel (int requestId, TdApi.Chat channel, @Nullable TdApi.Message lastMessage) {
+    if (requestId != personalChannelRequestId || isDestroyed() || baseAdapter == null) {
+      return;
+    }
+    TGFoundChat found = new TGFoundChat(tdlib, null, channel, false, null);
+    String preview = null;
+    if (lastMessage != null) {
+      preview = ContentPreview.getChatListPreview(tdlib, channel.id, lastMessage, true).buildText(true);
+    }
+    found.setForcedSubtitle(!StringUtils.isEmpty(preview) ? preview : Lang.getString(R.string.PersonalChannel));
+    personalChannelItem = found;
+    int index = baseAdapter.indexOfViewById(R.id.btn_personalChannel);
+    if (index == -1) {
+      addTopItem(new ListItem(ListItem.TYPE_CHAT_BETTER, R.id.btn_personalChannel).setData(found), baseHeaderItemCount);
+    } else {
+      baseAdapter.getItems().get(index).setData(found);
+      baseAdapter.notifyItemChanged(index);
+    }
+  }
+
+  private void setPersonalChannelData (ListItem item, BetterChatView chatView) {
+    chatView.setEnabled(true);
+    TGFoundChat found = (TGFoundChat) item.getData();
+    chatView.setChat(found);
+    int memberCount = found != null ? tdlib.chatMemberCount(found.getId()) : 0;
+    chatView.setTime(memberCount > 0 ? Lang.plural(R.string.xSubscribers, memberCount) : Lang.getString(R.string.PersonalChannel));
+  }
+
+  private void checkProfileExtraTabs () {
+    if (pagerAdapter == null || topCellView == null) {
+      return;
+    }
+    final boolean extras = needProfileExtras();
+    boolean needMusic = false, needStories = false, needArchive = false, needGifts = false;
+    if (mode == Mode.USER && userFull != null) {
+      boolean isSelf = tdlib.isSelfUserId(user.id);
+      needMusic = extras && userFull.firstProfileAudio != null;
+      needStories = extras && (userFull.hasPostedToProfileStories || isSelf);
+      needArchive = extras && isSelf;
+      needGifts = extras && userFull.giftCount > 0;
+    } else if (mode == Mode.CHANNEL && supergroupFull != null) {
+      needStories = extras && supergroupFull.hasPinnedStories;
+      needGifts = extras && supergroupFull.giftCount > 0;
+    }
+    SharedStoriesController stories = null, archive = null;
+    SharedGiftsController gifts = null;
+    SharedProfileAudioController music = null;
+    for (SharedBaseController<?> c : getControllers()) {
+      if (c instanceof SharedStoriesController) {
+        if (((SharedStoriesController) c).isArchive()) {
+          archive = (SharedStoriesController) c;
+        } else {
+          stories = (SharedStoriesController) c;
+        }
+      } else if (c instanceof SharedGiftsController) {
+        gifts = (SharedGiftsController) c;
+      } else if (c instanceof SharedProfileAudioController) {
+        music = (SharedProfileAudioController) c;
+      }
+    }
+    if (needMusic != (music != null)) {
+      if (needMusic) {
+        addControllerTab(new SharedProfileAudioController(context, tdlib));
+      } else {
+        removeControllerTab(music);
+      }
+    }
+    if (needStories != (stories != null)) {
+      if (needStories) {
+        addControllerTab(new SharedStoriesController(context, tdlib));
+      } else {
+        removeControllerTab(stories);
+      }
+    }
+    if (needArchive != (archive != null)) {
+      if (needArchive) {
+        addControllerTab(new SharedStoriesController(context, tdlib).setArchive(true));
+      } else {
+        removeControllerTab(archive);
+      }
+    }
+    if (needGifts != (gifts != null)) {
+      if (needGifts) {
+        addControllerTab(new SharedGiftsController(context, tdlib));
+      } else {
+        removeControllerTab(gifts);
+      }
+    }
+  }
+
   @Override
   public void performComplexPhotoOpen () {
     if (tdlib.canChangeInfo(chat) || tdlib.canEditBotChat(chat.id)) {
@@ -4900,6 +5148,12 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       icons.append(R.drawable.baseline_forward_24);
 
       showOptions("@" + tdlib.chatUsername(chat.id), ids.get(), strings.get(), null, icons.get());
+    } else if (viewId == R.id.btn_profileMusic) {
+      playProfileMusic();
+    } else if (viewId == R.id.btn_personalChannel) {
+      if (personalChannelId != 0) {
+        tdlib.ui().openChat(this, personalChannelId, null);
+      }
     } else if (viewId == R.id.btn_birthdate) {
       TdApi.Birthdate birthdate = userFull != null ? userFull.birthdate : null;
       if (birthdate != null) {
@@ -6347,6 +6601,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       } else {
         addFullCells(userFull);
       }
+      checkProfileExtras();
     });
   }
 
@@ -6664,6 +6919,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       };
     }
     tdlib.uiExecute(act);
+    tdlib.uiExecute(this::checkProfileExtras);
   }
 
   @Override

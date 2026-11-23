@@ -108,12 +108,20 @@ public class StoryViewController extends ViewController<StoryViewController.Args
     public final int chatIndex;
     public final int storyId;
     public final boolean singleStory;
+    @Nullable public final int[] storyIdList;
+    public final int storyIdListIndex;
 
     private Args (long[] chatIds, int chatIndex, int storyId, boolean singleStory) {
+      this(chatIds, chatIndex, storyId, singleStory, null, 0);
+    }
+
+    private Args (long[] chatIds, int chatIndex, int storyId, boolean singleStory, @Nullable int[] storyIdList, int storyIdListIndex) {
       this.chatIds = chatIds;
       this.chatIndex = chatIndex;
       this.storyId = storyId;
       this.singleStory = singleStory;
+      this.storyIdList = storyIdList;
+      this.storyIdListIndex = storyIdListIndex;
     }
   }
 
@@ -135,6 +143,15 @@ public class StoryViewController extends ViewController<StoryViewController.Args
   /** Opens exactly one story, e.g. from {@link TdApi.MessageStory} or {@link TdApi.MessageReplyToStory}. */
   public static void openStory (@NonNull ViewController<?> context, long storyPosterChatId, int storyId) {
     open(context, new Args(new long[] {storyPosterChatId}, 0, storyId, true));
+  }
+
+  /** Opens the given stories of one chat (e.g. stories posted to a profile page), starting at {@code index}. */
+  public static void openStoryList (@NonNull ViewController<?> context, long storyPosterChatId, int[] storyIds, int index) {
+    if (storyIds == null || storyIds.length == 0) {
+      return;
+    }
+    index = Math.max(0, Math.min(storyIds.length - 1, index));
+    open(context, new Args(new long[] {storyPosterChatId}, 0, storyIds[index], true, storyIds.clone(), index));
   }
 
   private static void open (@NonNull ViewController<?> context, @NonNull Args args) {
@@ -432,6 +449,11 @@ public class StoryViewController extends ViewController<StoryViewController.Args
     contentView.invalidate();
 
     final Args args = getArgumentsStrict();
+    if (args.storyIdList != null) {
+      storyIds = args.storyIdList;
+      showStoryAt(args.storyIdListIndex);
+      return;
+    }
     if (args.singleStory) {
       storyIds = new int[] {args.storyId};
       showStoryAt(0);

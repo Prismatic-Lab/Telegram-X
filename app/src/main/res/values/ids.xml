@@ -550,6 +550,14 @@
   <item type="id" name="btn_bubble" />
   <item type="id" name="btn_notifications" />
   <item type="id" name="btn_birthdate" />
+  <item type="id" name="btn_profileMusic" />
+  <item type="id" name="btn_personalChannel" />
+  <item type="id" name="btn_removeProfileAudio" />
+  <item type="id" name="btn_saveAudioToProfile" />
+  <item type="id" name="btn_richMessageOpenFull" />
+  <item type="id" name="btn_modProfileExtras" />
+  <item type="id" name="btn_modRichInline" />
+  <item type="id" name="btn_personalChannelRemove" />
   <item type="id" name="btn_addBirthdate" />
   <item type="id" name="btn_groupsInCommon" />
   <item type="id" name="btn_chatBackground" />

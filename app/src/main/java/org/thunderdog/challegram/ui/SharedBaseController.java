@@ -456,7 +456,7 @@ public abstract class SharedBaseController <T extends MessageSourceProvider> ext
             reuse.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, explainedTitle, false));
           }
           reuse.add(new ListItem(ListItem.TYPE_SHADOW_TOP, R.id.shadowTop));
-        } else {
+        } else if (controller.needItemSeparators()) {
           reuse.add(new ListItem(ListItem.TYPE_SEPARATOR));
         }
       }
@@ -737,7 +737,13 @@ public abstract class SharedBaseController <T extends MessageSourceProvider> ext
         break;
       }
       default: {
-        throw new UnsupportedOperationException(object.toString());
+        ArrayList<T> customItems = parseCustomResult(object);
+        if (customItems == null) {
+          throw new UnsupportedOperationException(object.toString());
+        }
+        items = customItems;
+        modifyResultIfNeeded(items, true);
+        break;
       }
     }
     final long nextOffsetFinal = nextOffset;
@@ -1439,6 +1445,21 @@ public abstract class SharedBaseController <T extends MessageSourceProvider> ext
   }
 
   protected boolean needsDefaultOnClick () {
+    return true;
+  }
+
+  /**
+   * Allows subclasses to load from TDLib functions whose results are not handled by {@link #processData}.
+   * Called on a TDLib thread.
+   *
+   * @return parsed items, or {@code null} if the result type is not supported.
+   */
+  @Nullable
+  protected ArrayList<T> parseCustomResult (TdApi.Object object) {
+    return null;
+  }
+
+  protected boolean needItemSeparators () {
     return true;
   }
 

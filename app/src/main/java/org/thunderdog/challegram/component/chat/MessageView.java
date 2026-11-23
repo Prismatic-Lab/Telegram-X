@@ -36,6 +36,7 @@ import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.ContentPreview;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGMessage;
+import org.thunderdog.challegram.data.TGMessageRichMessage;
 import org.thunderdog.challegram.data.TGMessageBotInfo;
 import org.thunderdog.challegram.data.TGMessageLocation;
 import org.thunderdog.challegram.data.TGMessageSticker;
@@ -63,6 +64,7 @@ import org.thunderdog.challegram.ui.EditRightsController;
 import org.thunderdog.challegram.ui.HashtagChatController;
 import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.unsorted.ModProfileFeatures;
 import org.thunderdog.challegram.util.DrawableProvider;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.util.text.Text;
@@ -916,6 +918,18 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       ids.append(R.id.btn_messageSummarize);
       strings.append(R.string.MessageSummarize);
       icons.append(R.drawable.baseline_short_text_24);
+    }
+
+    if (!isMore && msg instanceof TGMessageRichMessage) {
+      ids.append(R.id.btn_richMessageOpenFull);
+      strings.append(R.string.RichMessageOpenFull);
+      icons.append(R.drawable.deproko_baseline_instantview_24);
+    }
+
+    if (!isMore && messageCount == 1 && ModProfileFeatures.profileExtrasEnabled() && msg.getMessage().content.getConstructor() == TdApi.MessageAudio.CONSTRUCTOR && !msg.isSending()) {
+      ids.append(R.id.btn_saveAudioToProfile);
+      strings.append(R.string.ProfileMusicSave);
+      icons.append(R.drawable.baseline_music_note_24);
     }
 
     if (messageCount == 1) {

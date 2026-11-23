@@ -57,6 +57,7 @@ import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.unsorted.AppContext;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.unsorted.ModProfileFeatures;
 import org.thunderdog.challegram.util.AppUpdater;
 import org.thunderdog.challegram.util.DrawableModifier;
 import org.thunderdog.challegram.util.Permissions;
@@ -256,6 +257,10 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
           v.setData(ModDesign.getAvatarShape() == ModDesign.AVATAR_SHAPE_ROUNDED_SQUARE ? R.string.ModAvatarShapeSquare : R.string.ModAvatarShapeCircle);
         } else if (itemId == R.id.btn_separateMedia) {
           v.getToggler().setRadioEnabled(Settings.instance().needSeparateMediaTab(), isUpdate);
+        } else if (itemId == R.id.btn_modProfileExtras) {
+          v.getToggler().setRadioEnabled(ModProfileFeatures.profileExtrasEnabled(), isUpdate);
+        } else if (itemId == R.id.btn_modRichInline) {
+          v.getToggler().setRadioEnabled(ModProfileFeatures.richMessageInlineEnabled(), isUpdate);
         } else if (itemId == R.id.btn_restrictSensitiveContent) {
           v.getToggler().setRadioEnabled(tdlib.ignoreSensitiveContentRestrictions(), isUpdate);
         } else if (itemId == R.id.btn_ignoreContentRestrictions) {
@@ -608,6 +613,10 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_mosaic, 0, R.string.RememberAlbumSetting));
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_separateMedia, 0, R.string.SeparateMediaTab));
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_modProfileExtras, 0, R.string.ModProfileExtras));
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_modRichInline, 0, R.string.ModRichMessageInline));
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_markdown, 0, R.string.EditMarkdown));
       items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
@@ -1209,6 +1218,10 @@ public class SettingsThemeController extends RecyclerViewController<SettingsThem
       showModAvatarShapeOptions();
     } else if (viewId == R.id.btn_separateMedia) {
       Settings.instance().setNeedSeparateMediaTab(adapter.toggleView(v));
+    } else if (viewId == R.id.btn_modProfileExtras) {
+      ModProfileFeatures.setProfileExtrasEnabled(adapter.toggleView(v));
+    } else if (viewId == R.id.btn_modRichInline) {
+      ModProfileFeatures.setRichMessageInlineEnabled(adapter.toggleView(v));
     } else if (viewId == R.id.btn_restrictSensitiveContent) {
       tdlib.setIgnoreSensitiveContentRestrictions(adapter.toggleView(v));
     } else if (viewId == R.id.btn_ignoreContentRestrictions) {

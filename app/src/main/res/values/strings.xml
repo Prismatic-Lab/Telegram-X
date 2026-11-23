@@ -1505,6 +1505,25 @@
   <string name="ActionPinnedVoice">%1$s pinned a **voice message**</string>
   <string name="ActionPinnedStory">%1$s pinned a **story**</string>
   <string name="Stories">Stories</string>
+  <string name="ProfileStoriesArchive">Story archive</string>
+  <string name="xProfileStories_one">%1$s story</string>
+  <string name="xProfileStories_other">%1$s stories</string>
+  <string name="ProfileGifts">Gifts</string>
+  <string name="xProfileGifts_one">%1$s gift</string>
+  <string name="xProfileGifts_other">%1$s gifts</string>
+  <string name="ProfileGiftFrom">From %1$s</string>
+  <string name="ProfileGiftFromUnknown">From an unknown sender</string>
+  <string name="ProfileMusic">Music on profile</string>
+  <string name="xProfileAudios_one">%1$s track on profile</string>
+  <string name="xProfileAudios_other">%1$s tracks on profile</string>
+  <string name="format_profileMusicTrack">%1$s — %2$s</string>
+  <string name="ProfileMusicRemove">Remove from profile</string>
+  <string name="ProfileMusicSave">Save to profile</string>
+  <string name="ProfileMusicSaved">Saved to your profile music</string>
+  <string name="PersonalChannel">Personal channel</string>
+  <string name="PersonalChannelNone">Not set</string>
+  <string name="PersonalChannelRemove">Remove personal channel</string>
+  <string name="PersonalChannelNoSuitable">You have no public channels that can be shown on your profile.</string>
   <string name="StoryShared">Story</string>
   <string name="StoryMentionedYou">%1$s mentioned you in a story</string>
   <string name="StoryExpired">This story is no longer available</string>
@@ -3097,6 +3116,8 @@
   <string name="PrivacyDeleteCloudDrafts">Delete All Cloud Drafts</string>
   <string name="AreYouSureClearDrafts">Are you sure you want to delete all cloud drafts?</string>
   <string name="SeparateMediaTab">Separate photo and video tabs</string>
+  <string name="ModProfileExtras">Profile music, channel, gifts and stories</string>
+  <string name="ModRichMessageInline">Expand articles inside messages</string>
   <string name="TabMedia">Media</string>
   <string name="TabPhoto">Photos</string>
   <string name="TabVideo">Videos</string>
@@ -3957,6 +3978,9 @@
   <string name="RichMessage">Article</string>
   <string name="RichMessageRead">Read article</string>
   <string name="RichMessageButtonUnsupported">This button is not supported yet.</string>
+  <string name="RichMessageOpenFull">Open in full screen</string>
+  <string name="RichMessageCollapse">Collapse</string>
+  <string name="RichMessageShowMore">Show more</string>
   <string name="LanguageDatabase">Localizations</string>
   <string name="SettingsAndThemes">Settings and Themes</string>
 

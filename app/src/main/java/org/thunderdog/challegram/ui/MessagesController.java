@@ -138,6 +138,7 @@ import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGAudio;
 import org.thunderdog.challegram.data.TGBotStart;
 import org.thunderdog.challegram.data.TGMessage;
+import org.thunderdog.challegram.data.TGMessageRichMessage;
 import org.thunderdog.challegram.data.TGMessageBotInfo;
 import org.thunderdog.challegram.data.TGMessageLocation;
 import org.thunderdog.challegram.data.TGMessageMedia;
@@ -5860,6 +5861,25 @@ public class MessagesController extends ViewController<MessagesController.Argume
         return true;
       } else if (id == R.id.btn_messageSummaryOff) {
         selectedMessage.hideSummary();
+        return true;
+      } else if (id == R.id.btn_richMessageOpenFull) {
+        if (selectedMessage instanceof TGMessageRichMessage) {
+          ((TGMessageRichMessage) selectedMessage).openFullScreen(null);
+        }
+        return true;
+      } else if (id == R.id.btn_saveAudioToProfile) {
+        TdApi.MessageContent content = selectedMessage.getMessage().content;
+        if (content.getConstructor() == TdApi.MessageAudio.CONSTRUCTOR) {
+          TdApi.Audio audio = ((TdApi.MessageAudio) content).audio;
+          TdApi.InputFile inputFile = audio.audio.remote != null && !StringUtils.isEmpty(audio.audio.remote.id) ? new TdApi.InputFileRemote(audio.audio.remote.id) : new TdApi.InputFileId(audio.audio.id);
+          tdlib.send(new TdApi.AddProfileAudio(new TdApi.InputAudio(inputFile, null, audio.duration, audio.title, audio.performer)), (ok, error) -> {
+            if (error != null) {
+              UI.showError(error);
+            } else {
+              UI.showToast(R.string.ProfileMusicSaved, Toast.LENGTH_SHORT);
+            }
+          });
+        }
         return true;
       } else if (id == R.id.btn_saveGif) {
         if (selectedMessageTag != null) {
