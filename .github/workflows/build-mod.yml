@@ -116,7 +116,7 @@ jobs:
           df -h /
 
       - name: Build arm64 debug (latest flavor)
-        run: ./gradlew :app:assembleLatestDebug -Pabi=arm64 --stacktrace --no-configuration-cache
+        run: ./gradlew :app:assembleLatestDebug -Pabi=arm64 --stacktrace
 
       - name: Collect APK
         if: always()
