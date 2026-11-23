@@ -137,6 +137,85 @@ public class PageBlockRichText extends PageBlock {
     // setPadding(14f);
   }
 
+  // Section heading of a rich message: size is 1-6, 1 is the largest
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockSectionHeading heading, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, heading, quoteLevel);
+    final TextStyleProvider provider;
+    if (heading.size <= 2) {
+      provider = getHeaderProvider();
+      this.paddingTop = 14f;
+      this.paddingBottom = 8f;
+    } else if (heading.size <= 4) {
+      provider = getSubheaderProvider();
+      this.paddingTop = 8f;
+    } else {
+      provider = getParagraphProvider();
+      this.paddingTop = 8f;
+    }
+    setText(new TdApi.RichTextBold(heading.text), provider, heading.size <= 4 ? TextColorSets.InstantView.HEADER : TextColorSets.InstantView.NORMAL, Text.FLAG_ARTICLE, openParameters);
+  }
+
+  // "Thinking..." placeholder of a pending rich message
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockThinking thinking, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, thinking, quoteLevel);
+    setText(new TdApi.RichTextItalic(thinking.text), getParagraphProvider(), TextColorSets.InstantView.CAPTION, Text.FLAG_ARTICLE, openParameters);
+  }
+
+  // Mathematical expression: no formula renderer, so its source is shown as a monospace block
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockMathematicalExpression expression, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, expression, quoteLevel);
+    setText(new TdApi.RichTextFixed(new TdApi.RichTextPlain(expression.expression)), getPreformattedProvider(), TextColorSets.InstantView.NORMAL, Text.FLAG_ARTICLE | Text.FLAG_ALIGN_CENTER, openParameters);
+    this.backgroundColorId = ColorId.iv_preBlockBackground;
+    this.textHorizontalOffset = TEXT_HORIZONTAL_OFFSET_PRE_BLOCK;
+  }
+
+  // Expandable block quote: shown expanded, as a block quote
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockExpandableBlockQuote blockQuote, int quoteLevel, boolean isCredit, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, blockQuote, quoteLevel);
+    if (isCredit) {
+      setText(blockQuote.credit, getCaptionProvider(), TextColorSets.InstantView.CAPTION, Text.FLAG_ARTICLE, openParameters);
+      paddingTop = 3f;
+      paddingBottom = 12f;
+    } else {
+      setText(blockQuote.text, getBlockQuoteProvider(), TextColorSets.InstantView.BLOCK_QUOTE, Text.FLAG_ARTICLE, openParameters);
+      if (!Td.isEmpty(blockQuote.credit)) {
+        paddingBottom = 3f;
+      }
+    }
+  }
+
+  // Row of buttons: each button is a clickable RichTextButton, handled by Text.ClickCallback.onButtonClick
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockButtonRow buttonRow, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, buttonRow, quoteLevel);
+    List<TdApi.RichText> texts = new ArrayList<>(buttonRow.buttons.length * 2);
+    // Full-width buttons, when align is null, go one per line
+    final String separator = buttonRow.align == null ? "\n" : "    ";
+    for (TdApi.InlineButton button : buttonRow.buttons) {
+      if (!texts.isEmpty()) {
+        texts.add(new TdApi.RichTextPlain(separator));
+      }
+      texts.add(new TdApi.RichTextBold(new TdApi.RichTextButton(button)));
+    }
+    int flags = Text.FLAG_ARTICLE;
+    if (buttonRow.align == null || buttonRow.align.getConstructor() == TdApi.PageBlockHorizontalAlignmentCenter.CONSTRUCTOR) {
+      flags |= Text.FLAG_ALIGN_CENTER;
+    } else if (buttonRow.align.getConstructor() == TdApi.PageBlockHorizontalAlignmentRight.CONSTRUCTOR) {
+      flags |= Text.FLAG_ALIGN_RIGHT;
+    }
+    setText(texts.size() == 1 ? texts.get(0) : new TdApi.RichTexts(texts.toArray(new TdApi.RichText[0])), getParagraphProvider(), TextColorSets.InstantView.NORMAL, flags, openParameters);
+    this.paddingTop = this.paddingBottom = 10f;
+  }
+
+  // Document: there is no document cell in Instant View, so its file name is shown
+  public PageBlockRichText (ViewController<?> context, TdApi.PageBlockDocument document, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
+    super(context, document, quoteLevel);
+    String fileName = document.document != null ? document.document.fileName : null;
+    if (fileName == null || fileName.trim().isEmpty()) {
+      fileName = Lang.getString(R.string.File);
+    }
+    setText(new TdApi.RichTextBold(new TdApi.RichTextPlain(fileName)), getParagraphProvider(), TextColorSets.InstantView.NORMAL, Text.FLAG_ARTICLE, openParameters);
+  }
+
   public PageBlockRichText (ViewController<?> context, TdApi.PageBlockKicker kicker, int quoteLevel, @Nullable TdlibUi.UrlOpenParameters openParameters) {
     super(context, kicker, quoteLevel);
     this.paddingTop = 16f;

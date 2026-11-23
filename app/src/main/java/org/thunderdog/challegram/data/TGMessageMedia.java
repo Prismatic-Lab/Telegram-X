@@ -616,12 +616,17 @@ public class TGMessageMedia extends TGMessage {
   private boolean setCaption (TdApi.FormattedText caption, long messageId, boolean force) {
     this.captionMessageId = messageId;
     if (!Td.equalsTo(this.caption, caption) || force) {
+      if (this.caption != null && !Td.equalsTo(this.caption, caption)) {
+        resetSummary();
+      }
       this.caption = caption;
       if (this.wrapper != null) {
         this.wrapper.performDestroy();
       }
       if (!Td.isEmpty(caption)) {
-        TdApi.FormattedText fText = translatedText != null ? translatedText : caption;
+        // An AI summary is shown in place of the caption, over a translation
+        final TdApi.FormattedText summary = getShownSummary();
+        TdApi.FormattedText fText = summary != null ? summary : translatedText != null ? translatedText : caption;
         this.wrapper = new TextWrapper(fText.text, getTextStyleProvider(), getTextColorSet())
           .setEntities(TextEntity.valueOf(tdlib, fText, openParameters()), (wrapper, text, specificMedia) -> {
             if (this.wrapper == wrapper) {
@@ -1204,6 +1209,26 @@ public class TGMessageMedia extends TGMessage {
     rebuildAndUpdateContent();
     invalidateTextMediaReceiver();
     super.setTranslationResult(text);
+  }
+
+  @Nullable
+  @Override
+  protected TdApi.Message getMessageToSummarize () {
+    // In an album, the message with the caption
+    TdApi.Message message = captionMessageId != 0 ? getMessage(captionMessageId) : null;
+    return message != null ? message : super.getMessageToSummarize();
+  }
+
+  @Override
+  protected boolean supportsSummary () {
+    return !Td.isEmpty(caption);
+  }
+
+  @Override
+  protected void onSummaryVisibilityChanged () {
+    checkCommonCaption(true);
+    rebuildAndUpdateContent();
+    invalidateTextMediaReceiver();
   }
 
 

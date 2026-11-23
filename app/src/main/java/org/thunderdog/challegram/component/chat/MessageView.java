@@ -904,6 +904,16 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
       icons.append(R.drawable.baseline_translate_24);
     }
 
+    if (!isMore && msg.isSummaryShown()) {
+      ids.append(R.id.btn_messageSummaryOff);
+      strings.append(R.string.MessageSummaryOff);
+      icons.append(R.drawable.baseline_short_text_24);
+    } else if (!isMore && msg.canSummarize()) {
+      ids.append(R.id.btn_messageSummarize);
+      strings.append(R.string.MessageSummarize);
+      icons.append(R.drawable.baseline_short_text_24);
+    }
+
     if (messageCount == 1) {
       if (!isMore && msg.getMessage().content.getConstructor() == TdApi.MessageSticker.CONSTRUCTOR) {
         TdApi.Sticker sticker = ((TdApi.MessageSticker) msg.getMessage().content).sticker;

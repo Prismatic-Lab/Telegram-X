@@ -338,9 +338,9 @@ public class TGMessageText extends TGMessage {
 
   @Override
   public @Nullable int[] getSwitchedBlocks () {
-    // Ids of blocks are their offsets in the text, so those of a translation aren't kept
+    // Ids of blocks are their offsets in the text, so those of a translation or a summary aren't kept
     final Text text = effectiveWrapper != null ? effectiveWrapper.getCurrent() : null;
-    return text != null && translatedText == null ? text.getSwitchedBlocks() : null;
+    return text != null && translatedText == null && getShownSummary() == null ? text.getSwitchedBlocks() : null;
   }
 
   @Override
@@ -367,10 +367,13 @@ public class TGMessageText extends TGMessage {
         }
       };
       TextWrapper wrapper;
-      if (translatedText != null) {
-        wrapper = new TextWrapper(translatedText.text, getTextStyleProvider(), colorSet)
-          .setEntities(TextEntity.valueOf(tdlib, translatedText, openParameters()), textMediaListener)
-          .setHighlightText(getHighlightedText(Highlight.Pool.KEY_TEXT, translatedText.text))
+      // An AI summary is shown in place of the text, over a translation
+      final TdApi.FormattedText summary = getShownSummary();
+      final TdApi.FormattedText alternativeText = summary != null ? summary : translatedText;
+      if (alternativeText != null) {
+        wrapper = new TextWrapper(alternativeText.text, getTextStyleProvider(), colorSet)
+          .setEntities(TextEntity.valueOf(tdlib, alternativeText, openParameters()), textMediaListener)
+          .setHighlightText(getHighlightedText(Highlight.Pool.KEY_TEXT, alternativeText.text))
           .setClickCallback(clickCallback());
       } else if (text.entities != null || !parseEntities) {
         wrapper = new TextWrapper(text.text, getTextStyleProvider(), colorSet)
@@ -550,6 +553,9 @@ public class TGMessageText extends TGMessage {
     TdApi.MessageText newText = Td.isText(newContent) ? (TdApi.MessageText) newContent : new TdApi.MessageText(Td.textOrCaption(newContent), null, null);
     this.currentMessageText = newText;
     if (!isBeingEdited()) {
+      if (!Td.equalsTo(this.text, newText.text)) {
+        resetSummary();
+      }
       boolean textChanged = setText(newText.text, false);
       boolean linkPreviewChanged = setLinkPreview(newText.linkPreview, newText.linkPreviewOptions);
       if (linkPreviewChanged) {
@@ -844,5 +850,17 @@ public class TGMessageText extends TGMessage {
     rebuildAndUpdateContent();
     invalidateTextMediaReceiver();
     super.setTranslationResult(text);
+  }
+
+  @Override
+  protected boolean supportsSummary () {
+    return !isSponsoredMessage();
+  }
+
+  @Override
+  protected void onSummaryVisibilityChanged () {
+    setText(this.text, false, true, true);
+    rebuildAndUpdateContent();
+    invalidateTextMediaReceiver();
   }
 }

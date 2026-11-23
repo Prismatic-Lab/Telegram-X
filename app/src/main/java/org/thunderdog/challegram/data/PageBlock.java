@@ -355,7 +355,7 @@ public abstract class PageBlock {
 
     private ListItemInfo[] openedList;
     private PageBlock detailsBlock;
-    private final List<TdApi.PageBlockBlockQuote> openQuotes = new ArrayList<>();
+    private final List<TdApi.PageBlock> openQuotes = new ArrayList<>(); // PageBlockBlockQuote or PageBlockExpandableBlockQuote
 
     public ParseContext (String url, TdApi.WebPageInstantView instantView, TGPlayerController.PlayListBuilder playListBuilder) {
       this.url = url;
@@ -814,6 +814,50 @@ public abstract class PageBlock {
 
         context.isPost = false;
 
+        break;
+      }
+
+      // Rich messages
+      case TdApi.PageBlockSectionHeading.CONSTRUCTOR: {
+        context.process(new PageBlockRichText(parent, (TdApi.PageBlockSectionHeading) block, context.quoteLevel(), openParameters), out);
+        break;
+      }
+      case TdApi.PageBlockThinking.CONSTRUCTOR: {
+        context.process(new PageBlockRichText(parent, (TdApi.PageBlockThinking) block, context.quoteLevel(), openParameters), out);
+        break;
+      }
+      case TdApi.PageBlockMathematicalExpression.CONSTRUCTOR: {
+        context.process(new PageBlockRichText(parent, (TdApi.PageBlockMathematicalExpression) block, context.quoteLevel(), openParameters), out);
+        break;
+      }
+      case TdApi.PageBlockButtonRow.CONSTRUCTOR: {
+        TdApi.PageBlockButtonRow buttonRow = (TdApi.PageBlockButtonRow) block;
+        if (buttonRow.buttons.length > 0) {
+          context.process(new PageBlockRichText(parent, buttonRow, context.quoteLevel(), openParameters), out);
+        }
+        break;
+      }
+      case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
+        TdApi.PageBlockExpandableBlockQuote quoteRaw = (TdApi.PageBlockExpandableBlockQuote) block;
+        context.openQuotes.add(quoteRaw);
+        PageBlockRichText quote = new PageBlockRichText(parent, quoteRaw, context.quoteLevel(), false, openParameters);
+        context.process(quote, out);
+        if (!Td.isEmpty(quoteRaw.credit)) {
+          PageBlockRichText credit = new PageBlockRichText(parent, quoteRaw, context.quoteLevel(), true, openParameters);
+          credit.mergeWith(quote);
+          context.process(credit, out);
+        }
+        context.openQuotes.remove(context.openQuotes.size() - 1);
+        break;
+      }
+      case TdApi.PageBlockDocument.CONSTRUCTOR: {
+        TdApi.PageBlockDocument documentRaw = (TdApi.PageBlockDocument) block;
+        context.process(new PageBlockRichText(parent, documentRaw, context.quoteLevel(), openParameters), out);
+        context.processCaption(parent, documentRaw, documentRaw.caption, openParameters, out);
+        break;
+      }
+      case TdApi.PageBlockUnsupported.CONSTRUCTOR: {
+        // Nothing to show
         break;
       }
 

@@ -167,6 +167,7 @@ import me.vkryl.core.reference.ReferenceList;
 import tgx.td.ChatId;
 import tgx.td.MessageId;
 import tgx.td.Td;
+import tgx.td.TdConstants;
 import tgx.td.TdExt;
 import tgx.td.data.MessageWithProperties;
 
@@ -8451,6 +8452,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         case TdApi.MessageGame.CONSTRUCTOR: {
           return new TGMessageGame(context, msg, ((TdApi.MessageGame) content).game);
         }
+        case TdApi.MessageRichMessage.CONSTRUCTOR: {
+          return new TGMessageRichMessage(context, msg, nonNull(((TdApi.MessageRichMessage) content).message));
+        }
         case TdApi.MessageExpiredPhoto.CONSTRUCTOR: {
           return new TGMessageService(context, msg, (TdApi.MessageExpiredPhoto) content);
         }
@@ -8627,7 +8631,6 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           return new TGMessageGiveaway(context, msg, (TdApi.MessageGiveaway) content);
         }
         // unsupported
-        case TdApi.MessageRichMessage.CONSTRUCTOR:
         case TdApi.MessageInvoice.CONSTRUCTOR:
         case TdApi.MessagePassportDataSent.CONSTRUCTOR:
         case TdApi.MessageChatSetBackground.CONSTRUCTOR:
@@ -9907,6 +9910,113 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   protected void setTranslationResult (@Nullable TdApi.FormattedText text) {
     manager.updateMessageTranslation(getChatId(), getSmallestId(), text);
   };
+
+  // AI summary: shown in place of the text, like an inline translation
+
+  private @Nullable TdApi.FormattedText summaryText;
+  private boolean isSummaryShown, isSummaryLoading;
+  private int summaryContextId;
+
+  /**
+   * @return Message whose text is summarized and that carries summaryLanguageCode
+   */
+  protected @Nullable TdApi.Message getMessageToSummarize () {
+    return msg;
+  }
+
+  /**
+   * @return true, if the class shows {@link #getShownSummary()} in place of its text
+   */
+  protected boolean supportsSummary () {
+    return false;
+  }
+
+  public boolean canSummarize () {
+    if (!supportsSummary() || isSponsoredMessage() || isNotSent() || isScheduled() || (flags & FLAG_UNSUPPORTED) != 0) {
+      return false;
+    }
+    TdApi.Message message = getMessageToSummarize();
+    return message != null && !StringUtils.isEmpty(message.summaryLanguageCode);
+  }
+
+  public boolean isSummaryShown () {
+    return isSummaryShown;
+  }
+
+  protected final @Nullable TdApi.FormattedText getShownSummary () {
+    return isSummaryShown ? summaryText : null;
+  }
+
+  protected void onSummaryVisibilityChanged () {
+    // override
+  }
+
+  public void showSummary () {
+    if (isSummaryShown || isSummaryLoading || !canSummarize()) {
+      return;
+    }
+    if (summaryText != null) {
+      isSummaryShown = true;
+      onSummaryVisibilityChanged();
+      return;
+    }
+    TdApi.Message message = getMessageToSummarize();
+    if (message == null) {
+      return;
+    }
+    isSummaryLoading = true;
+    final int contextId = ++summaryContextId;
+    // The summary is in the language of the inline translation, when it is on
+    String translatedLanguage = getCurrentTranslatedLanguage();
+    UI.showToast(R.string.MessageSummaryLoading, Toast.LENGTH_SHORT);
+    tdlib.send(new TdApi.SummarizeMessage(message.chatId, message.id, translatedLanguage != null ? translatedLanguage : "", TdConstants.TEXT_FORMAT_NEUTRAL), (summary, error) -> runOnUiThreadOptional(() -> {
+      if (contextId != summaryContextId) {
+        return;
+      }
+      isSummaryLoading = false;
+      if (error != null) {
+        UI.showError(error);
+        return;
+      }
+      if (Td.isEmpty(summary)) {
+        return;
+      }
+      summaryText = buildSummaryText(summary);
+      isSummaryShown = true;
+      onSummaryVisibilityChanged();
+    }));
+  }
+
+  public void hideSummary () {
+    if (isSummaryShown) {
+      isSummaryShown = false;
+      onSummaryVisibilityChanged();
+    }
+  }
+
+  /**
+   * Drops a summary made for the text before an edit. Doesn't call {@link #onSummaryVisibilityChanged()}:
+   * the caller rebuilds the new text right after.
+   */
+  protected final void resetSummary () {
+    summaryContextId++;
+    isSummaryLoading = false;
+    summaryText = null;
+    isSummaryShown = false;
+  }
+
+  private static TdApi.FormattedText buildSummaryText (TdApi.FormattedText summary) {
+    final String header = Lang.getString(R.string.MessageSummaryHeader);
+    final String prefix = header + "\n";
+    final TdApi.TextEntity[] source = summary.entities != null ? summary.entities : new TdApi.TextEntity[0];
+    final TdApi.TextEntity[] entities = new TdApi.TextEntity[source.length + 1];
+    entities[0] = new TdApi.TextEntity(0, header.length(), new TdApi.TextEntityTypeBold());
+    for (int i = 0; i < source.length; i++) {
+      TdApi.TextEntity entity = source[i];
+      entities[i + 1] = new TdApi.TextEntity(entity.offset + prefix.length(), entity.length, entity.type);
+    }
+    return new TdApi.FormattedText(prefix + summary.text, entities);
+  }
 
   /*  */
 

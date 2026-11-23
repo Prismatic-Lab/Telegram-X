@@ -80,10 +80,28 @@ public class InstantViewController extends ViewController<InstantViewController.
     public TdApi.WebPageInstantView instantView;
     public String anchorLink;
 
+    // Set when the page is the full content of a rich message, not a web page
+    public long richMessageChatId, richMessageId;
+
     public Args (TdApi.LinkPreview linkPreview, TdApi.WebPageInstantView instantView, String anchorLink) {
       this.linkPreview = linkPreview;
       this.instantView = instantView;
       this.anchorLink = anchorLink;
+    }
+
+    public static Args forRichMessage (Tdlib tdlib, long chatId, long messageId, String title, @NonNull TdApi.RichMessage richMessage) {
+      // The page has no URL: t.me is passed, so links and anchors resolve as on a known host
+      String url = tdlib.tMeUrl();
+      TdApi.LinkPreview linkPreview = new TdApi.LinkPreview(url, url, title, title, new TdApi.FormattedText("", new TdApi.TextEntity[0]), "", new TdApi.LinkPreviewTypeArticle(null), false, false, false, true, false, 0);
+      TdApi.WebPageInstantView instantView = new TdApi.WebPageInstantView(richMessage.blocks, 0, 2, richMessage.isRtl, richMessage.isFull, null);
+      Args args = new Args(linkPreview, instantView, null);
+      args.richMessageChatId = chatId;
+      args.richMessageId = messageId;
+      return args;
+    }
+
+    public boolean isRichMessage () {
+      return richMessageChatId != 0;
     }
   }
 
@@ -98,7 +116,7 @@ public class InstantViewController extends ViewController<InstantViewController.
 
   @Override
   protected int getMenuId () {
-    return R.id.menu_iv;
+    return getArgumentsStrict().isRichMessage() ? 0 : R.id.menu_iv;
   }
 
   @Override
@@ -229,6 +247,75 @@ public class InstantViewController extends ViewController<InstantViewController.
   @Override
   public boolean onAnchorClick (View view, String anchor) {
     return scrollToAnchor(anchor, true);
+  }
+
+  @Override
+  public boolean onButtonClick (View view, TdApi.InlineButton button, @NonNull TdlibUi.UrlOpenParameters openParameters) {
+    if (button == null || button.type == null) {
+      return false;
+    }
+    Args args = getArgumentsStrict();
+    switch (button.type.getConstructor()) {
+      case TdApi.InlineKeyboardButtonTypeUrl.CONSTRUCTOR: {
+        tdlib.ui().openUrl(this, ((TdApi.InlineKeyboardButtonTypeUrl) button.type).url, openParameters);
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeLoginUrl.CONSTRUCTOR: {
+        // Opened as a plain link: login confirmation needs a message keyboard
+        tdlib.ui().openUrl(this, ((TdApi.InlineKeyboardButtonTypeLoginUrl) button.type).url, openParameters);
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeWebApp.CONSTRUCTOR: {
+        // Mini Apps from inline buttons aren't supported by TGX, the link is opened instead
+        tdlib.ui().openUrl(this, ((TdApi.InlineKeyboardButtonTypeWebApp) button.type).url, openParameters);
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeUser.CONSTRUCTOR: {
+        tdlib.ui().openPrivateProfile(this, ((TdApi.InlineKeyboardButtonTypeUser) button.type).userId, openParameters);
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeCopyText.CONSTRUCTOR: {
+        UI.copyText(((TdApi.InlineKeyboardButtonTypeCopyText) button.type).text, R.string.CopiedText);
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeCallback.CONSTRUCTOR: {
+        if (!args.isRichMessage()) {
+          return false;
+        }
+        final byte[] data = ((TdApi.InlineKeyboardButtonTypeCallback) button.type).data;
+        tdlib.send(new TdApi.GetCallbackQueryAnswer(args.richMessageChatId, args.richMessageId, new TdApi.CallbackQueryPayloadData(data)), (answer, error) -> runOnUiThreadOptional(() -> {
+          if (error != null) {
+            UI.showError(error);
+            return;
+          }
+          if (!StringUtils.isEmpty(answer.url)) {
+            openLinkAlert(answer.url, openParameters);
+          }
+          if (!StringUtils.isEmpty(answer.text)) {
+            if (answer.showAlert) {
+              openOkAlert(null, answer.text);
+            } else {
+              UI.showToast(answer.text, Toast.LENGTH_SHORT);
+            }
+          }
+        }));
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeDisabled.CONSTRUCTOR: {
+        return true;
+      }
+      case TdApi.InlineKeyboardButtonTypeCallbackWithPassword.CONSTRUCTOR:
+      case TdApi.InlineKeyboardButtonTypeCallbackGame.CONSTRUCTOR:
+      case TdApi.InlineKeyboardButtonTypeSwitchInline.CONSTRUCTOR:
+      case TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR: {
+        UI.showToast(R.string.RichMessageButtonUnsupported, Toast.LENGTH_SHORT);
+        return true;
+      }
+      default: {
+        Td.assertInlineKeyboardButtonType_3a46e70a();
+        throw Td.unsupported(button.type);
+      }
+    }
   }
 
   @Override
@@ -489,7 +576,7 @@ public class InstantViewController extends ViewController<InstantViewController.
     }
     // recyclerView.setItemAnimator(new CustomItemAnimator(Anim.DECELERATE_INTERPOLATOR, 180l));
 
-    if (!isReplace) {
+    if (!isReplace && !args.isRichMessage()) {
       tdlib.send(new TdApi.GetWebPageInstantView(getUrl(), false), (webPageInstantView, error) -> {
         if (error != null) {
           UI.showError(error);
