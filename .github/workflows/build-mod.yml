@@ -1,0 +1,133 @@
+name: Build mod (arm64 debug)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [mod]
+
+concurrency:
+  group: build-mod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/../android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/../android-sdk
+    steps:
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/node_modules \
+            /opt/az /opt/microsoft /opt/google "$AGENT_TOOLSDIRECTORY/PyPy" || true
+          sudo docker image prune --all --force || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Install git-lfs
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq git-lfs && git lfs install
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true
+          fetch-depth: 0
+
+      - name: Fetch LFS objects in submodules
+        run: |
+          git lfs pull || true
+          git submodule foreach --recursive 'git lfs install --local >/dev/null 2>&1 || true; git lfs pull || true'
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Android SDK packages
+        run: |
+          set -e
+          prop() { grep "^$1=" version.properties | cut -d= -f2-; }
+          mkdir -p "$ANDROID_SDK_ROOT"
+          cd "$ANDROID_SDK_ROOT"
+          wget -q -O cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-$(cd $GITHUB_WORKSPACE && prop version.cmdline_tools)_latest.zip"
+          unzip -q cmdline-tools.zip -d cmdline-tools
+          mv cmdline-tools/cmdline-tools cmdline-tools/latest
+          rm cmdline-tools.zip
+          cd "$GITHUB_WORKSPACE"
+          SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install \
+            "platform-tools" \
+            "platforms;$(prop version.sdk_package)" \
+            "build-tools;$(prop version.build_tools)" \
+            "ndk;$(prop version.ndk_primary)" \
+            "cmake;$(prop version.cmake)" > /dev/null
+          ls "$ANDROID_SDK_ROOT" "$ANDROID_SDK_ROOT/ndk" "$ANDROID_SDK_ROOT/platforms"
+          echo "$ANDROID_SDK_ROOT/cmake/$(prop version.cmake)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Rust
+        run: |
+          set -e
+          command -v rustup || curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --profile minimal
+          export PATH="$HOME/.cargo/bin:$PATH"
+          RUST_VERSION=$(grep '^version.rust=' version.properties | cut -d= -f2)
+          rustup toolchain install "$RUST_VERSION" --profile minimal \
+            --target aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          echo "RUST_DIR=$(rustup show home)" >> "$GITHUB_ENV"
+
+      - name: Restore stable debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: tgx-mod-debug-keystore-v1
+
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', 'buildSrc/build.gradle.kts') }}
+          restore-keys: gradle-
+
+      - name: Write local.properties
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/gradle.properties <<EOF
+          org.gradle.jvmargs=-Xmx6g -Dkotlin.daemon.jvm.options="-Xmx4g" -Dfile.encoding=UTF-8
+          org.gradle.workers.max=4
+          EOF
+          cat > local.properties <<EOF
+          sdk.dir=$ANDROID_SDK_ROOT
+          rust.dir=$RUST_DIR
+          org.gradle.workers.max=4
+          app.id=org.example.tgxmod
+          app.name=TGX Mod
+          app.download_url=https://github.com/Prismatic-Lab/Telegram-X
+          app.sources_url=https://github.com/Prismatic-Lab/Telegram-X/tree/mod
+          tgx.extension=none
+          EOF
+          cat local.properties
+          df -h /
+
+      - name: Build arm64 debug (latest flavor)
+        run: ./gradlew :app:assembleLatestDebug -Pabi=arm64 --stacktrace --no-configuration-cache
+
+      - name: Collect APK
+        if: always()
+        run: |
+          df -h /
+          find app/build/outputs -name '*.apk' -exec ls -la {} \; || true
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tgx-mod-arm64-debug
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
